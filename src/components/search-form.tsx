@@ -65,9 +65,12 @@ export default function SearchForm({ onSubmit, disabled, statusText }: SearchFor
         <button
           type="submit"
           disabled={disabled || !request.trim()}
-          className="h-[38px] px-[18px] bg-[var(--accent)] text-white font-semibold rounded-lg border-0 disabled:opacity-50 cursor-pointer disabled:cursor-default"
+          className="h-[38px] px-[18px] bg-[var(--accent)] text-white font-semibold rounded-lg border-0 disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5"
         >
-          실행
+          {disabled && (
+            <span className="inline-block w-[14px] h-[14px] border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          )}
+          {disabled ? "실행 중…" : "실행"}
         </button>
         {statusText && (
           <span className="text-[12px] text-[var(--dim)] pb-2.5">
