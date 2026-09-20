@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f7f8;
+  --foreground: #1a1a1c;
+  --panel: #ffffff;
+  --border: #e3e3e6;
+  --dim: #6b6b73;
+  --accent: #3b5bdb;
+  --pass: #0f7b4f;
+  --pass-bg: #e6f5ee;
+  --fail: #b42318;
+  --fail-bg: #fdecea;
+  --unknown: #8a6100;
+  --unknown-bg: #fdf3dc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #16161a;
+    --foreground: #e9e9ec;
+    --panel: #1e1e24;
+    --border: #32323a;
+    --dim: #9a9aa4;
+    --accent: #8da2fb;
+    --pass: #5fd39b;
+    --pass-bg: #12301f;
+    --fail: #f98a80;
+    --fail-bg: #3a1614;
+    --unknown: #e8c06a;
+    --unknown-bg: #332a12;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-dim: var(--dim);
+  --color-accent: var(--accent);
+  --color-pass: var(--pass);
+  --color-pass-bg: var(--pass-bg);
+  --color-fail: var(--fail);
+  --color-fail-bg: var(--fail-bg);
+  --color-unknown: var(--unknown);
+  --color-unknown-bg: var(--unknown-bg);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
