@@ -7,7 +7,7 @@ import PlanReview from "@/components/plan-review";
 import ProgressLog from "@/components/progress-log";
 import ResultCard from "@/components/result-card";
 import { startRun, resumeJob, getJob, streamUrl } from "@/lib/api";
-import type { Plan, RunResult, SSEEvent } from "@/types/api";
+import type { Plan, RunResult, SSEEvent, HintsData } from "@/types/api";
 
 type Status = "idle" | "running" | "paused" | "done" | "error";
 
@@ -21,8 +21,10 @@ export default function Home() {
   const [statusText, setStatusText] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
-  const [hints, setHints] = useState<{ level: string; text: string }[]>([]);
+  const [hints, setHints] = useState<HintsData | null>(null);
+  const [revisions, setRevisions] = useState<string[]>([]);
   const [result, setResult] = useState<RunResult | null>(null);
+  const [planBusy, setPlanBusy] = useState("");
   const [jobId, setJobId] = useState("");
   const esRef = useRef<EventSource | null>(null);
   const seenRef = useRef(-1);
@@ -53,23 +55,31 @@ export default function Home() {
             log("사람 확인 대기 — 조건을 검토하세요", d.at);
             if (d.plan) setPlan(d.plan);
             if (d.hints) setHints(d.hints);
+            if (d.revisions) setRevisions(d.revisions);
+            setPlanBusy("");
             setStatus("paused");
-            setStatusText("");
+            setStatusText("조건을 확인해 주세요");
             break;
           case "node":
             log(`[${d.node}] ${d.text}`, d.at);
+            setPlanBusy("");
             setStatus("running");
             setStatusText("리서치 중");
             break;
           case "error":
             log("실패: " + d.message, d.at);
+            setPlanBusy("");
             setStatus("error");
-            setStatusText("오류 발생");
+            setStatusText("실패");
             break;
           case "done":
             log("완료", d.at);
+            setPlanBusy("");
             getJob(id).then((j) => {
-              if (j.result) setResult(j.result);
+              if (j.result) {
+                setResult(j.result);
+                if (j.result.revisions) setRevisions(j.result.revisions);
+              }
               setStatus("done");
               setStatusText("완료");
             });
@@ -82,7 +92,7 @@ export default function Home() {
       };
 
       es.onerror = () => {
-        setStatusText("연결이 끊겼습니다");
+        setStatusText("연결이 끊겼습니다 — 결과는 out/ 에 저장됩니다");
         es.close();
         esRef.current = null;
       };
@@ -92,101 +102,94 @@ export default function Home() {
 
   const handleSubmit = async (request: string, filters: Record<string, unknown>) => {
     setStatus("running");
-    setStatusText("조건을 분석하는 중…");
+    setStatusText("조건을 읽는 중");
     setLogs([]);
     setPlan(null);
-    setHints([]);
+    setHints(null);
+    setRevisions([]);
     setResult(null);
+    setPlanBusy("");
     try {
       const { job_id } = await startRun(request, filters, null, true);
       setJobId(job_id);
       follow(job_id);
     } catch (e) {
       setStatus("error");
-      setStatusText("시작 실패: " + (e as Error).message);
+      setStatusText("오류: " + (e as Error).message);
     }
   };
 
-  const handleApprove = async () => {
+  const doResume = async (action: string, opts: Record<string, unknown> = {}) => {
     if (!jobId) return;
+    const msg =
+      action === "approve" ? "발굴을 시작합니다"
+      : action === "revise" ? "조건을 고치는 중… (몇 초 걸립니다)"
+      : "조건을 바꾸는 중…";
     setStatus("running");
-    setStatusText("발굴을 시작합니다");
+    setStatusText(msg);
+    setPlanBusy(msg);
     try {
-      await resumeJob({ job_id: jobId, action: "approve" });
+      await resumeJob({ job_id: jobId, action, ...opts });
       follow(jobId);
     } catch (e) {
+      setPlanBusy("");
       setStatusText("오류: " + (e as Error).message);
     }
   };
 
-  const handleRevise = async (instruction: string) => {
-    if (!jobId) return;
-    setStatus("running");
-    setStatusText("조건을 고치는 중…");
-    try {
-      await resumeJob({ job_id: jobId, action: "revise", instruction });
-      follow(jobId);
-    } catch (e) {
-      setStatusText("오류: " + (e as Error).message);
-    }
+  const handleApprove = () => doResume("approve");
+  const handleRevise = (instruction: string) => {
+    log("조건 고치기: " + instruction);
+    doResume("revise", { instruction });
   };
-
-  const handleDrop = async (ids: string[]) => {
-    if (!jobId) return;
-    try {
-      await resumeJob({ job_id: jobId, action: "drop", ids });
-      follow(jobId);
-    } catch (e) {
-      setStatusText("오류: " + (e as Error).message);
-    }
+  const handleDrop = (ids: string[]) => {
+    log("조건 제외: " + ids.join(", "));
+    doResume("drop", { ids });
   };
-
-  const handleToggleWeight = async (id: string, to: "must" | "nice") => {
-    if (!jobId) return;
-    try {
-      await resumeJob({ job_id: jobId, action: "weight", ids: [id], to });
-      follow(jobId);
-    } catch (e) {
-      setStatusText("오류: " + (e as Error).message);
-    }
+  const handleToggleWeight = (id: string, to: "must" | "nice") => {
+    log(`${id} → ${to === "nice" ? "참고" : "필수"}`);
+    doResume("weight", { ids: [id], to });
+  };
+  const handleAddCondition = (text: string, weight: "must" | "nice", kind: "require" | "exclude") => {
+    log(`조건 추가: ${text}${weight === "must" ? " (필수)" : ""}${kind === "exclude" ? " (배제)" : ""}`);
+    doResume("add", { text, to: weight, kind });
   };
 
   return (
     <div className="max-w-[920px] mx-auto px-4 py-5 pb-16">
       <header className="flex items-center gap-3 flex-wrap mb-4">
-        <h1 className="text-lg font-semibold tracking-tight">influencer-agent</h1>
+        <h1 className="text-[17px] font-semibold tracking-tight m-0">influencer-agent</h1>
         <div className="ml-auto">
           <StatusBadges />
         </div>
       </header>
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         <SearchForm
           onSubmit={handleSubmit}
           disabled={status === "running"}
+          statusText={statusText}
         />
 
-        {plan && status === "paused" && (
+        {plan && (
           <PlanReview
             plan={plan}
-            hints={hints}
+            hints={hints ?? undefined}
+            revisions={revisions}
             onApprove={handleApprove}
             onRevise={handleRevise}
             onDrop={handleDrop}
             onToggleWeight={handleToggleWeight}
+            onAddCondition={handleAddCondition}
             disabled={status !== "paused"}
+            busy={planBusy}
           />
         )}
 
-        <ProgressLog logs={logs} status={status} statusText={statusText} />
+        <ProgressLog logs={logs} status={status} />
 
         {result && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-dim">
-              결과 — {result.passed.length}명 통과
-              {result.rejected.length > 0 && ` · ${result.rejected.length}명 탈락`}
-              {result.elapsed > 0 && ` · ${result.elapsed}초`}
-            </h2>
+          <div>
             {result.passed.map((p, i) => (
               <ResultCard
                 key={p.handle}
@@ -197,17 +200,32 @@ export default function Home() {
             ))}
 
             {result.rejected.length > 0 && (
-              <details>
-                <summary className="text-xs text-dim cursor-pointer">
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[12px] text-[var(--dim)]">
                   탈락 {result.rejected.length}명
                 </summary>
-                <div className="mt-2 space-y-1">
-                  {result.rejected.map((r, i) => (
-                    <p key={i} className="text-xs text-dim">
-                      {r.name} ({r.handle}) — {r._reject}
-                    </p>
-                  ))}
-                </div>
+                <table className="w-full border-collapse text-[12.5px] mt-1">
+                  <thead>
+                    <tr>
+                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">이름</th>
+                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">핸들</th>
+                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">플랫폼</th>
+                      <th className="text-right p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">팔로워</th>
+                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">사유</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rejected.map((r, i) => (
+                      <tr key={i}>
+                        <td className="p-1.5 border-t border-[var(--border)]">{r.name}</td>
+                        <td className="p-1.5 border-t border-[var(--border)]">{r.handle}</td>
+                        <td className="p-1.5 border-t border-[var(--border)]">{r.platform}</td>
+                        <td className="p-1.5 border-t border-[var(--border)] text-right tabular-nums">{(r.followers ?? 0).toLocaleString()}</td>
+                        <td className="p-1.5 border-t border-[var(--border)]">{r._reject}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </details>
             )}
           </div>

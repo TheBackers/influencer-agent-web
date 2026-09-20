@@ -110,6 +110,17 @@ export interface RunResult {
   revisions: string[];
 }
 
+export interface ConditionHint {
+  level: "warn" | "good" | "note";
+  text: string;
+  short?: string;
+}
+
+export interface HintsData {
+  global?: ConditionHint[];
+  by_id?: Record<string, ConditionHint[]>;
+}
+
 export interface SSEEvent {
   t: "plan" | "confirm" | "node" | "done" | "error" | "end";
   i?: number;
@@ -120,12 +131,17 @@ export interface SSEEvent {
   message?: string;
   ask?: string;
   revisions?: string[];
-  hints?: { level: string; text: string }[];
+  hints?: HintsData;
 }
 
 export interface EnvStatus {
   mock_llm: boolean;
   model: string;
+  engagement?: {
+    youtube?: { max_followers: number; min_rate: number }[];
+    instagram?: { max_followers: number; min_rate: number }[];
+    min_sample?: number;
+  };
   tools: {
     web_search: boolean;
     search_provider: string;
