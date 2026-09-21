@@ -167,7 +167,7 @@ export default function Home() {
       <div className="space-y-3.5">
         <SearchForm
           onSubmit={handleSubmit}
-          disabled={status === "running"}
+          disabled={status === "running" || status === "paused"}
           statusText={statusText}
         />
 
