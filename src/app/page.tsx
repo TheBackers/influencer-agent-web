@@ -36,7 +36,9 @@ export default function Home() {
   const follow = useCallback(
     (id: string) => {
       if (esRef.current) esRef.current.close();
-      seenRef.current = -1;
+      // ★ seenRef 를 리셋하지 않는다. resume 후 follow 를 다시 부를 때
+      //   서버는 events[0]부터 전부 재전송하므로, 이미 본 이벤트를 건너뛰어야 한다.
+      //   리셋하면 plan·confirm 이벤트가 중복 처리되어 로그에 두 번 찍힌다.
       const es = new EventSource(streamUrl(id));
       esRef.current = es;
 
@@ -109,6 +111,7 @@ export default function Home() {
     setRevisions([]);
     setResult(null);
     setPlanBusy("");
+    seenRef.current = -1;  // 새 실행이므로 이벤트 순번 리셋
     try {
       const { job_id } = await startRun(request, filters, null, true);
       setJobId(job_id);
