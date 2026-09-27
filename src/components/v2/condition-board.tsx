@@ -47,6 +47,14 @@ export default function ConditionBoard({ plan, busy, locked, onPatch, onRevise, 
         </div>
       </div>
 
+      {plan.validator_notes.length > 0 && (
+        <ul aria-label="검증기 안내" className="m-0 mb-3 mx-4 px-3 py-2 list-none rounded-md bg-[var(--soft)] text-[12.5px] text-[var(--ink-2)] flex flex-col gap-1">
+          {plan.validator_notes.map((n, i) => (
+            <li key={i} className={n.startsWith("⚠") ? "text-[var(--warn,#8a5a00)] font-medium" : ""}>{n}</li>
+          ))}
+        </ul>
+      )}
+
       <div className="relative overflow-x-auto">
         <table className="w-full border-collapse text-[13.5px]">
           <thead>
@@ -70,6 +78,10 @@ export default function ConditionBoard({ plan, busy, locked, onPatch, onRevise, 
                       <div className="font-medium">
                         {c.source_phrase}
                         {c.interpretation_group && <span className="font-normal text-[var(--dim)]"> ({c.intent.replace(/인$/, "")})</span>}
+                        {c.origin === "code" && (
+                          <span title="요청문의 숫자를 코드가 그대로 읽은 조건 — 발굴 단계에서 바로 거릅니다"
+                            className="ml-2 px-1.5 py-px rounded text-[11px] font-normal bg-[var(--soft)] text-[var(--dim)] border border-[var(--border)]">숫자 그대로</span>
+                        )}
                         {c.dropped && <span className="ml-2 text-[12px] font-normal">제외됨</span>}
                       </div>
                       <div className="text-[12.5px] text-[var(--dim)] md:truncate md:max-w-[520px] min-w-[180px]">

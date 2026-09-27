@@ -41,6 +41,22 @@ export interface ConditionSpec {
   chosen_alternative?: string | null; // 대안 id · "drop" · null(원안)
   interpretation_group?: string; // 뜻이 두 갈래일 때 같은 그룹
   dropped?: boolean;
+  origin?: "llm" | "code"; // code = 요청문의 숫자(구독자 · 참여율 · 기간)를 코드가 읽어 만든 카드
+  hard?: Record<string, number>; // 발굴 단계에서 바로 거르는 값
+}
+
+/** GET /api/v2/capabilities — 관리자가 쓸 수 있는 조건의 종류 */
+export interface ConditionType {
+  type: string;
+  code?: boolean; // 코드가 요청문에서 직접 읽는다
+  examples: string[];
+  template: string;
+  how: string;
+}
+
+export interface Capabilities {
+  condition_types: ConditionType[];
+  blocked: { tool: string; reason: string; impact: string }[];
 }
 
 export interface Alternative {

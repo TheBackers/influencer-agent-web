@@ -97,7 +97,7 @@ function Summary({ d }: { d: Dossier }) {
       <p className="m-0 leading-relaxed text-[var(--ink-2)]">{d.summary}</p>
       <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4">
         <Stat label="인스타 팔로워" value={ig ? compact(ig.followers) : "—"} sub={ig ? (ig.engagement_known ? `참여율 ${ig.engagement_rate}%` : "지표 비공개") : "계정 없음"} />
-        <Stat label="유튜브 구독자" value={yt ? compact(yt.followers) : "—"} sub={yt ? `참여율 ${yt.engagement_rate}%` : "계정 없음"} />
+        <Stat label="유튜브 구독자" value={yt ? compact(yt.followers) : "—"} sub={yt ? `조회율 ${yt.engagement_rate}%` : "계정 없음"} />
         <Stat label="최근 90일 조회수 흐름" value={yt?.trend?.known ? `${yt.trend.ratio.toFixed(2)}배` : "—"} sub="이전 90일 대비" />
         <Stat label="협찬 표시 콘텐츠" value={`${d.sponsored_count}건`} sub="최근 1년" />
       </dl>
@@ -151,8 +151,9 @@ function PlatformTab({ p, kind }: { p: PlatformCard | null; kind: "instagram" | 
         <dt className="text-[var(--dim)]">계정</dt>
         <dd className="m-0"><a href={p.url} target="_blank" rel="noopener noreferrer">{p.handle}</a></dd>
         <dt className="text-[var(--dim)]">{yt ? "구독자" : "팔로워"}</dt><dd className="m-0 tabular">{num(p.followers)}</dd>
-        <dt className="text-[var(--dim)]">참여율</dt>
-        <dd className="m-0 tabular">{p.engagement_known ? `${p.engagement_rate}%` : "개인 계정이라 읽을 수 없음"}</dd>
+        <dt className="text-[var(--dim)]">{p.platform === "youtube" ? "조회율" : "참여율"}</dt>
+        <dd className="m-0 tabular">{p.engagement_known ? `${p.engagement_rate}%` : "개인 계정이라 읽을 수 없음"}
+          {p.engagement_known && <span className="block text-[12px] text-[var(--dim)]">{p.engagement_basis}</span>}</dd>
         <dt className="text-[var(--dim)]">최근 90일 흐름</dt>
         <dd className="m-0 tabular">{p.trend?.known ? `이전 90일의 ${p.trend.ratio.toFixed(2)}배` : "확인 못 함"}</dd>
         {p.uploads_90d !== undefined && (<><dt className="text-[var(--dim)]">업로드</dt><dd className="m-0 tabular">최근 90일 {p.uploads_90d}건, 이전 {p.uploads_prev_90d}건</dd></>)}

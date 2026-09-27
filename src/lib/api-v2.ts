@@ -16,7 +16,7 @@
  *   POST  /api/ops/gate {version}                  → GateDecision
  */
 import type {
-  CompiledPlan, ConditionPatch, FeedbackReq, GateDecision, MissionEvent, MissionResult,
+  Capabilities, CompiledPlan, ConditionPatch, FeedbackReq, GateDecision, MissionEvent, MissionResult,
   OpsOverview, MissionRunSummary, TraceEvent, EvaluatorScore, AgentScore, ObserveSeries,
   SLOItem, HealthCheck, ExperimentRow,
 } from "@/types/v2";
@@ -63,6 +63,12 @@ async function http<T>(path: string, init?: RequestInit, retried = false): Promi
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const mocks = () => Promise.all([import("@/mocks/plan"), import("@/mocks/mission"), import("@/mocks/ops")]);
+
+// ── 쓸 수 있는 조건 · 막힌 툴 ──────────────────────────────────────────────
+export async function getCapabilities(): Promise<Capabilities> {
+  if (USE_MOCK) return (await import("@/mocks/capabilities")).capabilities;
+  return http("/api/v2/capabilities");
+}
 
 // ── 조건 컴파일 · 승인 ────────────────────────────────────────────────────────
 export async function compilePlan(request: string, count: number): Promise<CompiledPlan> {

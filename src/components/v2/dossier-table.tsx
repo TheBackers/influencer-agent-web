@@ -68,7 +68,7 @@ export default function DossierTable({ list, sort, onSort, onOpen, selected }: P
                   </td>
                   <td className={`${tbl.td} text-right`}>
                     {yt ? compact(yt.followers) : "—"}
-                    <span className="block text-[12px] text-[var(--dim)]">{yt?.engagement_known ? `참여 ${yt.engagement_rate}%` : ""}</span>
+                    <span className="block text-[12px] text-[var(--dim)]">{yt?.engagement_known ? `조회율 ${yt.engagement_rate}%` : ""}</span>
                   </td>
                   <td className={`${tbl.td} text-right`}>{yt?.trend?.known ? `${yt.trend.ratio.toFixed(2)}배` : "—"}</td>
                   <td className={`${tbl.td} text-right`}>{d.sponsored_count ? `${d.sponsored_count}건` : <span className="text-[var(--dim)]">없음</span>}</td>
