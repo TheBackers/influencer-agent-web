@@ -1,239 +1,190 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import StatusBadges from "@/components/status-badges";
-import SearchForm from "@/components/search-form";
-import PlanReview from "@/components/plan-review";
-import ProgressLog from "@/components/progress-log";
-import ResultCard from "@/components/result-card";
-import { startRun, resumeJob, getJob, streamUrl } from "@/lib/api";
-import type { Plan, RunResult, SSEEvent, HintsData } from "@/types/api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import PageHeader from "@/components/v2/app-header";
+import RequestComposer from "@/components/v2/request-composer";
+import ConditionBoard from "@/components/v2/condition-board";
+import MissionStepper from "@/components/v2/mission-stepper";
+import CoverageBand from "@/components/v2/coverage-band";
+import ResultsToolbar from "@/components/v2/results-toolbar";
+import DossierTable, { type SortKey } from "@/components/v2/dossier-table";
+import DossierDrawer from "@/components/v2/dossier-drawer";
+import { compilePlan, followMission, getMission, patchCondition, revisePlan, sendFeedback, startMission, USE_MOCK } from "@/lib/api-v2";
+import { STEP_TEMPLATE } from "@/mocks/mission";
+import type { CompiledPlan, ConditionPatch, Dossier, MissionResult, MissionStep } from "@/types/v2";
 
-type Status = "idle" | "running" | "paused" | "done" | "error";
+type Phase = "idle" | "compiling" | "review" | "running" | "done" | "error";
+type Log = { at: string; text: string; kind: "log" | "intervention" | "error" };
 
-interface LogEntry {
-  time?: string;
-  text: string;
-}
+const sorters: Record<SortKey, (d: Dossier) => number> = {
+  score: (d) => d.score.must_pass * 10 + d.score.nice_pass * 3 + (d.youtube?.trend?.ratio ?? 0),
+  trend: (d) => d.youtube?.trend?.ratio ?? 0,
+  ig: (d) => d.instagram?.followers ?? 0,
+  yt: (d) => d.youtube?.followers ?? 0,
+  sponsored: (d) => d.sponsored_count,
+};
 
-export default function Home() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [statusText, setStatusText] = useState("");
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [hints, setHints] = useState<HintsData | null>(null);
-  const [revisions, setRevisions] = useState<string[]>([]);
-  const [result, setResult] = useState<RunResult | null>(null);
-  const [planBusy, setPlanBusy] = useState("");
-  const [jobId, setJobId] = useState("");
-  const esRef = useRef<EventSource | null>(null);
-  const seenRef = useRef(-1);
+export default function SearchPage() {
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [plan, setPlan] = useState<CompiledPlan | null>(null);
+  const [busy, setBusy] = useState("");
+  const [steps, setSteps] = useState<MissionStep[]>(STEP_TEMPLATE);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [result, setResult] = useState<MissionResult | null>(null);
+  const [error, setError] = useState("");
+  const [open, setOpen] = useState<Dossier | null>(null);
+  const [sort, setSort] = useState<SortKey>("score");
+  const [feedback, setFeedback] = useState<Record<string, 0 | 1>>({});
+  const stopRef = useRef<() => void>(() => {});
+  const missionRef = useRef("");
 
-  const log = useCallback((text: string, time?: string) => {
-    setLogs((prev) => [...prev, { time, text }]);
+  const compile = useCallback(async (request: string, count: number) => {
+    setPhase("compiling");
+    setError("");
+    setResult(null);
+    setOpen(null);
+    try {
+      setPlan(await compilePlan(request, count));
+      setPhase("review");
+    } catch (e) {
+      setError((e as Error).message);
+      setPhase("error");
+    }
   }, []);
 
-  const follow = useCallback(
-    (id: string) => {
-      if (esRef.current) esRef.current.close();
-      // ★ seenRef 를 리셋하지 않는다. resume 후 follow 를 다시 부를 때
-      //   서버는 events[0]부터 전부 재전송하므로, 이미 본 이벤트를 건너뛰어야 한다.
-      //   리셋하면 plan·confirm 이벤트가 중복 처리되어 로그에 두 번 찍힌다.
-      const es = new EventSource(streamUrl(id));
-      esRef.current = es;
+  const patch = async (cid: string, pch: ConditionPatch) => {
+    if (!plan) return;
+    try {
+      setError("");
+      setPlan(await patchCondition(plan, cid, pch));
+    } catch (e) {
+      setError((e as Error).message); // 검증기가 거부한 변경 (범위 밖 값 등) — 계획은 그대로 둔다
+    }
+  };
 
-      es.onmessage = (ev) => {
-        const d: SSEEvent = JSON.parse(ev.data);
-        if (typeof d.i === "number") {
-          if (d.i <= seenRef.current) return;
-          seenRef.current = d.i;
-        }
-        switch (d.t) {
-          case "plan":
-            if (d.plan) setPlan(d.plan);
-            log("조건 분해 완료", d.at);
-            break;
-          case "confirm":
-            log("사람 확인 대기 — 조건을 검토하세요", d.at);
-            if (d.plan) setPlan(d.plan);
-            if (d.hints) setHints(d.hints);
-            if (d.revisions) setRevisions(d.revisions);
-            setPlanBusy("");
-            setStatus("paused");
-            setStatusText("조건을 확인해 주세요");
-            break;
-          case "node":
-            log(`[${d.node}] ${d.text}`, d.at);
-            setPlanBusy("");
-            setStatus("running");
-            setStatusText("리서치 중");
-            break;
-          case "error":
-            log("실패: " + d.message, d.at);
-            setPlanBusy("");
-            setStatus("error");
-            setStatusText("실패");
-            break;
-          case "done":
-            log("완료", d.at);
-            setPlanBusy("");
-            getJob(id).then((j) => {
-              if (j.result) {
-                setResult(j.result);
-                if (j.result.revisions) setRevisions(j.result.revisions);
-              }
-              setStatus("done");
-              setStatusText("완료");
-            });
-            break;
-          case "end":
-            es.close();
-            esRef.current = null;
-            break;
-        }
-      };
+  const revise = async (instruction: string) => {
+    if (!plan) return;
+    setBusy("revise");
+    try {
+      setError("");
+      setPlan(await revisePlan(plan, instruction));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy("");
+    }
+  };
 
-      es.onerror = () => {
-        setStatusText("연결이 끊겼습니다 — 결과는 out/ 에 저장됩니다");
-        es.close();
-        esRef.current = null;
-      };
-    },
-    [log]
-  );
-
-  const handleSubmit = async (request: string, filters: Record<string, unknown>) => {
-    setStatus("running");
-    setStatusText("조건을 읽는 중");
+  const approve = useCallback(async (p: CompiledPlan | null = plan) => {
+    if (!p) return;
+    setPhase("running");
+    setSteps(STEP_TEMPLATE.map((s) => ({ ...s })));
     setLogs([]);
-    setPlan(null);
-    setHints(null);
-    setRevisions([]);
-    setResult(null);
-    setPlanBusy("");
-    seenRef.current = -1;  // 새 실행이므로 이벤트 순번 리셋
-    try {
-      const { job_id } = await startRun(request, filters, null, true);
-      setJobId(job_id);
-      follow(job_id);
-    } catch (e) {
-      setStatus("error");
-      setStatusText("오류: " + (e as Error).message);
-    }
+    setElapsed(0);
+    const { mission_id } = await startMission(p);
+    missionRef.current = mission_id;
+    const t0 = Date.now();
+    const tick = setInterval(() => setElapsed((Date.now() - t0) / 1000), 500);
+    const stop = followMission(mission_id, async (ev) => {
+      if (ev.t === "step" && ev.step) {
+        const st = ev.step;
+        setSteps((prev) => prev.map((s) => (s.key === st.key ? { ...s, ...st } : s)));
+      } else if (ev.t === "log" || ev.t === "intervention" || ev.t === "error") {
+        if (ev.t === "error") clearInterval(tick); // 임무 실패 · 연결 끊김 — 시계를 멈추고 로그에 남긴다
+        setLogs((prev) => [...prev, { at: ev.at, text: ev.text ?? "", kind: ev.t === "log" ? "log" : ev.t === "error" ? "error" : "intervention" }]);
+      } else if (ev.t === "done") {
+        clearInterval(tick);
+        setResult(await getMission(mission_id, p));
+        setPhase("done");
+      }
+    });
+    stopRef.current = () => { clearInterval(tick); stop(); };
+  }, [plan]);
+
+  useEffect(() => () => stopRef.current(), []);
+
+  // 목업 검토용 바로가기: /?demo=review | running | done | detail
+  useEffect(() => {
+    if (!USE_MOCK) return;
+    const demo = new URLSearchParams(window.location.search).get("demo");
+    if (!demo) return;
+    (async () => {
+      const p = await compilePlan("", 30);
+      setPlan(p);
+      if (demo === "review") setPhase("review");
+      if (demo === "running") approve(p);
+      if (demo === "done" || demo === "detail") {
+        const r = await getMission("m_mock_fashion30", p);
+        setResult(r);
+        setPhase("done");
+        if (demo === "detail") setOpen(r.dossiers[0]);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const list = useMemo(() => {
+    if (!result) return [];
+    return [...result.dossiers].sort((a, b) => sorters[sort](b) - sorters[sort](a)).slice(0, result.plan.estimate.count);
+  }, [result, sort]);
+
+  const giveFeedback = async (d: Dossier, score: 0 | 1, comment: string) => {
+    await sendFeedback({ mission_id: missionRef.current || (result?.mission_id ?? ""), run_id: d.run_id, handle: d.handle, score, comment });
+    setFeedback((f) => ({ ...f, [d.handle]: score }));
   };
 
-  const doResume = async (action: string, opts: Record<string, unknown> = {}) => {
-    if (!jobId) return;
-    const msg =
-      action === "approve" ? "발굴을 시작합니다"
-      : action === "revise" ? "조건을 고치는 중… (몇 초 걸립니다)"
-      : "조건을 바꾸는 중…";
-    setStatus("running");
-    setStatusText(msg);
-    setPlanBusy(msg);
-    try {
-      await resumeJob({ job_id: jobId, action, ...opts });
-      follow(jobId);
-    } catch (e) {
-      setPlanBusy("");
-      setStatusText("오류: " + (e as Error).message);
-    }
-  };
-
-  const handleApprove = () => doResume("approve");
-  const handleRevise = (instruction: string) => {
-    log("조건 고치기: " + instruction);
-    doResume("revise", { instruction });
-  };
-  const handleDrop = (ids: string[]) => {
-    log("조건 제외: " + ids.join(", "));
-    doResume("drop", { ids });
-  };
-  const handleToggleWeight = (id: string, to: "must" | "nice") => {
-    log(`${id} → ${to === "nice" ? "참고" : "필수"}`);
-    doResume("weight", { ids: [id], to });
-  };
-  const handleAddCondition = (text: string, weight: "must" | "nice", kind: "require" | "exclude") => {
-    log(`조건 추가: ${text}${weight === "must" ? " (필수)" : ""}${kind === "exclude" ? " (배제)" : ""}`);
-    doResume("add", { text, to: weight, kind });
-  };
+  const locked = phase === "running" || phase === "done";
+  const activeConditions = plan?.conditions.filter((c) => !c.dropped) ?? [];
 
   return (
-    <div className="max-w-[920px] mx-auto px-4 py-5 pb-16">
-      <header className="flex items-center gap-3 flex-wrap mb-4">
-        <h1 className="text-[17px] font-semibold tracking-tight m-0">influencer-agent</h1>
-        <div className="ml-auto">
-          <StatusBadges />
+    <main className={`w-full min-w-0 max-w-[1120px] px-4 md:px-8 py-6 pb-20 flex flex-col gap-4`}>
+      <PageHeader title="인플루언서 검색" description="원하는 조건을 말하면, 어떻게 판단할지 먼저 보여드리고 승인하신 뒤에 찾습니다." />
+
+      <RequestComposer busy={phase === "compiling"} locked={phase === "running"} onCompile={compile} />
+
+      {phase === "review" && error && (
+        <p role="alert" className="m-0 text-[13px] text-[var(--fail)]">바꾸지 못했습니다: {error}</p>
+      )}
+      {phase === "error" && (
+        <p role="alert" className="m-0 text-[13px] text-[var(--fail)]">조건을 만들지 못했습니다. {error}. 요청문을 조금 바꿔 다시 시도해 주세요.</p>
+      )}
+
+      {plan && phase === "review" && (
+        <ConditionBoard plan={plan} busy={busy} locked={locked} onPatch={patch} onRevise={revise} onApprove={() => approve()} />
+      )}
+
+      {plan && locked && (
+        <details className="text-[13px]">
+          <summary className="cursor-pointer text-[var(--ink-2)]">승인한 조건 {activeConditions.length}개</summary>
+          <ul className="mt-1.5 mb-0 pl-5 space-y-0.5 text-[var(--ink-2)]">
+            {activeConditions.map((c) => <li key={c.id}>{c.source_phrase} <span className="text-[var(--dim)]">({c.weight === "must" ? "필수" : "참고"})</span></li>)}
+          </ul>
+        </details>
+      )}
+
+      {(phase === "running" || (phase === "done" && logs.length > 0)) && (
+        <MissionStepper steps={steps} logs={logs} elapsed={elapsed} done={phase === "done"} />
+      )}
+
+      {phase === "done" && result && (
+        <div className="flex flex-col gap-3 pt-2">
+          <ResultsToolbar result={result} list={list} />
+          <CoverageBand result={result} />
+          <DossierTable list={list} sort={sort} onSort={setSort} onOpen={setOpen} selected={open?.handle} />
+          <details className="text-[13px]">
+            <summary className="cursor-pointer text-[var(--dim)]">제외된 후보 {result.rejected.reduce((a, r) => a + r.count, 0)}명</summary>
+            <ul className="mt-1.5 mb-0 pl-5 text-[var(--ink-2)] tabular">
+              {result.rejected.map((r, i) => <li key={i}>{r.reason}: {r.count}명</li>)}
+            </ul>
+          </details>
         </div>
-      </header>
+      )}
 
-      <div className="space-y-3.5">
-        <SearchForm
-          onSubmit={handleSubmit}
-          disabled={status === "running" || status === "paused"}
-          statusText={statusText}
-        />
-
-        {plan && (
-          <PlanReview
-            plan={plan}
-            hints={hints ?? undefined}
-            revisions={revisions}
-            onApprove={handleApprove}
-            onRevise={handleRevise}
-            onDrop={handleDrop}
-            onToggleWeight={handleToggleWeight}
-            onAddCondition={handleAddCondition}
-            disabled={status !== "paused"}
-            busy={planBusy}
-          />
-        )}
-
-        <ProgressLog logs={logs} status={status} />
-
-        {result && (
-          <div>
-            {result.passed.map((p, i) => (
-              <ResultCard
-                key={p.handle}
-                profile={p}
-                conditions={result.plan?.soft || []}
-                rank={i + 1}
-              />
-            ))}
-
-            {result.rejected.length > 0 && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-[12px] text-[var(--dim)]">
-                  탈락 {result.rejected.length}명
-                </summary>
-                <table className="w-full border-collapse text-[12.5px] mt-1">
-                  <thead>
-                    <tr>
-                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">이름</th>
-                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">핸들</th>
-                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">플랫폼</th>
-                      <th className="text-right p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">팔로워</th>
-                      <th className="text-left p-1.5 border-t border-[var(--border)] text-[var(--dim)] font-semibold text-[11px]">사유</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.rejected.map((r, i) => (
-                      <tr key={i}>
-                        <td className="p-1.5 border-t border-[var(--border)]">{r.name}</td>
-                        <td className="p-1.5 border-t border-[var(--border)]">{r.handle}</td>
-                        <td className="p-1.5 border-t border-[var(--border)]">{r.platform}</td>
-                        <td className="p-1.5 border-t border-[var(--border)] text-right tabular-nums">{(r.followers ?? 0).toLocaleString()}</td>
-                        <td className="p-1.5 border-t border-[var(--border)]">{r._reject}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </details>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      {open && result && (
+        <DossierDrawer key={open.handle} d={open} conditions={result.plan.conditions} missionId={result.mission_id} traceUrl={result.trace_url}
+          feedback={feedback[open.handle]} onFeedback={(s, c) => giveFeedback(open, s, c)} onClose={() => setOpen(null)} />
+      )}
+    </main>
   );
 }

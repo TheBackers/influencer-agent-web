@@ -1,34 +1,50 @@
 @import "tailwindcss";
 
+/*
+ * 디자인 토큰 — ui-ux-pro-max "Minimalism & Swiss Style"(대시보드 · 고밀도) 기준.
+ * 무채색 바탕 + 네이비 한 색. 상태색(통과/실패/확인 못 함)은 상태에만 쓴다.
+ * 기존 이름(--panel, --dim, --pass …)은 /legacy 화면이 그대로 쓰므로 유지한다.
+ */
 :root {
-  --background: #f7f7f8;
-  --foreground: #1a1a1c;
+  --background: #f7f8fa;
+  --foreground: #0f172a;
   --panel: #ffffff;
-  --border: #e3e3e6;
-  --dim: #6b6b73;
-  --accent: #3b5bdb;
-  --pass: #0f7b4f;
-  --pass-bg: #e6f5ee;
-  --fail: #b42318;
-  --fail-bg: #fdecea;
-  --unknown: #8a6100;
-  --unknown-bg: #fdf3dc;
+  --border: #e2e5ea;
+  --border-strong: #cdd2da;
+  --dim: #64748b;
+  --ink-2: #334155;
+  --soft: #f1f3f6;
+  --accent: #1e40af;
+  --accent-bg: #eef2fb;
+  --accent-ink: #ffffff;
+  --pass: #15803d;
+  --pass-bg: #ecf7ef;
+  --fail: #b91c1c;
+  --fail-bg: #fdf0f0;
+  --unknown: #a16207;
+  --unknown-bg: #fdf6e3;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #16161a;
-    --foreground: #e9e9ec;
-    --panel: #1e1e24;
-    --border: #32323a;
-    --dim: #9a9aa4;
-    --accent: #8da2fb;
-    --pass: #5fd39b;
-    --pass-bg: #12301f;
-    --fail: #f98a80;
-    --fail-bg: #3a1614;
-    --unknown: #e8c06a;
-    --unknown-bg: #332a12;
+    --background: #0d1117;
+    --foreground: #e6e9ef;
+    --panel: #151a22;
+    --border: #262d38;
+    --border-strong: #353e4b;
+    --dim: #8b95a5;
+    --ink-2: #c3cad5;
+    --soft: #1b212b;
+    --accent: #8fb0f5;
+    --accent-bg: #1a2436;
+    --accent-ink: #0d1117;
+    --pass: #5cc98a;
+    --pass-bg: #12261a;
+    --fail: #f08b8b;
+    --fail-bg: #2e1616;
+    --unknown: #e2b862;
+    --unknown-bg: #2c2410;
+    color-scheme: dark;
   }
 }
 
@@ -45,14 +61,32 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font: 14px/1.6 -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  font: 14px/1.55 var(--font-geist-sans), -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--accent); }
+@layer base {
+  a { color: var(--accent); text-underline-offset: 2px; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  select { background-color: var(--panel); color: var(--foreground); }
+}
 
+/* 기존 화면(/legacy)이 쓰는 카드 */
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 16px;
+}
+
+/* v2 표면 — 테두리 한 줄, 그림자 없음 */
+.surface { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
