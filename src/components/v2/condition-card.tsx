@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { ConditionSpec, ConditionPatch } from "@/types/v2";
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
 }
 
 const AGENT_KO: Record<string, string> = {
-  scout: "발굴", "ig-researcher": "인스타", "yt-researcher": "유튜브", "web-researcher": "웹",
+  scout: "발굴", "ig-researcher": "인스타", "yt-researcher": "유튜브", "web-researcher": "웹", "account-linker": "계정 연결",
   verifier: "판정", profiler: "정리", "query-planner": "조건",
 };
 
@@ -62,6 +63,8 @@ export default function ConditionDetail({ c, disabled, onPatch }: Props) {
           <p className="m-0"><span className="text-[var(--dim)]">측정 방법</span><br />{c.how}</p>
         )}
 
+        {c.rubric && <RubricBlock c={c} lock={lock} onPatch={onPatch} />}
+
         {c.caveat && <p className="m-0 text-[var(--ink-2)]"><span className="text-[var(--dim)]">한계</span><br />{c.caveat}</p>}
 
         {c.alternatives && c.alternatives.length > 0 && (
@@ -101,6 +104,53 @@ export default function ConditionDetail({ c, disabled, onPatch }: Props) {
         </div>
       </dl>
     </div>
+  );
+}
+
+const READ_KO = { posts: "본인 게시물 · 영상", web: "기사 · 후기" } as const;
+
+/** 기준표 — 추상 조건을 이렇게 판정한다는 약속. 확인하고, 다르면 '말로 고치기'로 바꾼다 */
+function RubricBlock({ c, lock, onPatch }: { c: ConditionSpec; lock: boolean; onPatch: Props["onPatch"] }) {
+  const r = c.rubric!;
+  const exclude = c.polarity === "exclude";
+  return (
+    <div className="rounded-md border border-[var(--border)] p-3 space-y-2">
+      <p className="m-0 text-[var(--dim)]">판정 기준표 <span className="text-[11.5px]">— 검증 에이전트가 이 기준대로 글을 읽고 판정합니다</span></p>
+      <p className="m-0 text-[var(--ink)]">{r.criterion}</p>
+      <dl className="m-0 grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 text-[12.5px]">
+        <dt className="text-[var(--dim)]">읽는 곳</dt>
+        <dd className="m-0">{r.read.map((x) => READ_KO[x]).join(" · ")} · 최근 {r.window_days}일</dd>
+        {r.pass_signals.length > 0 && (<>
+          <dt className="text-[var(--dim)]">{exclude ? "탈락 신호" : "충족 신호"}</dt>
+          <dd className="m-0 flex flex-wrap gap-1">{r.pass_signals.map((x) => <Chip key={x}>{x}</Chip>)}</dd>
+        </>)}
+        {r.fail_signals.length > 0 && (<>
+          <dt className="text-[var(--dim)]">반대 신호</dt>
+          <dd className="m-0 flex flex-wrap gap-1">{r.fail_signals.map((x) => <Chip key={x} muted>{x}</Chip>)}</dd>
+        </>)}
+        <dt className="text-[var(--dim)]">판정</dt>
+        <dd className="m-0">
+          {exclude ? (
+            <>해당하는 콘텐츠 · 기사를 1건이라도 찾으면 탈락 · 범위를 다 찾아도 없으면 통과</>
+          ) : (
+            <>
+              신호가 보인 콘텐츠{" "}
+              <input aria-label="충족에 필요한 건수" type="number" inputMode="numeric" min={1} max={10} value={r.min_hits}
+                disabled={lock} onChange={(e) => onPatch(c.id, { min_hits: Number(e.target.value) })}
+                className="w-[48px] h-[24px] px-1 rounded border border-[var(--border-strong)] bg-[var(--panel)] tabular text-center" />
+              건 이상이면 충족 · {r.min_read}건 이상 읽고 0건이면 미충족
+            </>
+          )}
+        </dd>
+      </dl>
+    </div>
+  );
+}
+
+function Chip({ children, muted }: { children: ReactNode; muted?: boolean }) {
+  return (
+    <span className={`inline-flex items-center h-[20px] px-1.5 rounded text-[11.5px] border ${muted
+      ? "border-[var(--border)] text-[var(--dim)]" : "border-[var(--border-strong)] text-[var(--ink-2)]"}`}>{children}</span>
   );
 }
 

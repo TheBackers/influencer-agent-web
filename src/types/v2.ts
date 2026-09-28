@@ -43,6 +43,18 @@ export interface ConditionSpec {
   dropped?: boolean;
   origin?: "llm" | "code"; // code = 요청문의 숫자(구독자 · 참여율 · 기간)를 코드가 읽어 만든 카드
   hard?: Record<string, number>; // 발굴 단계에서 바로 거르는 값
+  rubric?: Rubric | null; // 판단 조건의 기준표 (성향 · 사실 · 평판 · 기타)
+}
+
+/** 추상적인 조건을 사람이 확인할 수 있게 푼 판정 기준 — 검증 에이전트가 이대로 판정한다 */
+export interface Rubric {
+  criterion: string;
+  pass_signals: string[];
+  fail_signals: string[];
+  read: ("posts" | "web")[];
+  window_days: number;
+  min_hits: number;
+  min_read: number;
 }
 
 /** GET /api/v2/capabilities — 관리자가 쓸 수 있는 조건의 종류 */
@@ -95,6 +107,7 @@ export interface ConditionPatch {
   signal?: { id: string; enabled?: boolean; value?: number };
   chosen_alternative?: string | null;
   dropped?: boolean;
+  min_hits?: number; // 기준표 — 충족 신호 콘텐츠 몇 건 이상
 }
 
 // ── 임무 진행 (supervisor) ────────────────────────────────────────────────────
@@ -145,6 +158,18 @@ export interface PlatformCard {
   uploads_prev_90d?: number;
   recent: MediaItem[];
   source: "screen" | "researcher";
+  /** account-linker 가 이은 계정일 때 — 어떻게 찾았고 왜 같은 사람으로 봤나 */
+  link?: AccountLink;
+  needs_review?: boolean; // 확신도가 낮아 판정에 쓰지 않은 계정 (확인 필요)
+}
+
+export interface AccountLink {
+  how_found: string;
+  identity_evidence: string[];
+  counter_evidence: string[];
+  link_source: string;
+  verified: boolean; // API 로 조회됨
+  lookup_note: string;
 }
 
 export type WebKind = "언론" | "위키" | "커뮤니티" | "링크모음" | "본인계정" | "쇼핑" | "기타";
@@ -360,3 +385,87 @@ export interface OpsOverview {
   agents: AgentScore[];
   latest_mission: { mission_id: string; events: TraceEvent[] };
 }
+
+// ── AgentOps 콘솔 (GET /api/ops/*) — 백엔드 agentops/view.py 와 1:1 ─────────────────────
+export type TaskStatus = "ok" | "partial" | "failed" | "blocked" | "skipped" | "running";
+export type Severity = "critical" | "warning" | "info";
+
+export interface OpsMissionRow {
+  mission_id: string;
+  started_at: string;
+  request: string | null;
+  requested: number | null;
+  returned: number | null;
+  status: string;
+  cost_usd: number | null;
+  latency_ms: number | null;
+  events: number;
+  errors: number;
+  interventions: number;
+  failed_tasks: number;
+  critical?: number;
+  warning?: number;
+}
+
+export interface OpsGraphNode { id: string; label: string; runs: number; status: TaskStatus | "waiting"; detail: string }
+export interface OpsGraphEdge { from: string; to: string; kind: "normal" | "fanout" | "loop"; label: string; count: number; taken: boolean }
+export interface OpsStep { agent: string; label: string; runs: number; ok: number; partial: number; failed: number; p95_ms: number }
+export interface OpsCell { status: TaskStatus; ms: number; runs: number; task_ids: string[]; llm_calls: number; tool_calls: number; errors: number }
+export interface OpsCandidate {
+  handle: string;
+  cells: Record<string, OpsCell>;
+  ms: number;
+  problems: number;
+  verdict?: "pass" | "fail";
+  linked?: { platform: string; id: string; confidence: number };
+}
+export interface OpsProblem {
+  severity: Severity;
+  title: string;
+  cause: string;
+  hint: string;
+  agent: string;
+  candidates: string[];
+  count: number;
+  first_t: number | null;
+  event_ids: string[];
+}
+export interface OpsTool { tool: string; calls: number; cache_hits: number; errors: number; empty: number; avg_ms: number; p95_ms: number; providers: Record<string, number> }
+export interface OpsAgentRow { agent: string; label: string; runs: number; ok: number; partial: number; failed: number; total_ms: number; p95_ms: number; llm_calls: number; tool_calls: number; tokens_in: number }
+export interface OpsEventRow { t: number; type: string; agent: string; text: string; ms: number | null; event_id: string }
+export interface OpsTask {
+  task_id: string; agent: string; candidate: string; capability?: string; status: TaskStatus; ms: number;
+  focus: string[]; llm_calls: number; tool_calls: number; tokens_in: number; errors: number; start: number;
+  note?: string; events: OpsEventRow[];
+}
+export interface OpsMissionView {
+  summary: {
+    mission_id: string; request: string; started_at: string; status: string; requested: number | null;
+    returned: number | null; passed: number | null; rejected: number | null; duration_s: number; cost_usd: number | null;
+    tokens_in: number; llm_calls: number; tool_calls: number; cache_hits: number; events: number;
+    interventions: number; errors: number; env: string; version: string; critical: number; warning: number;
+  };
+  graph: { nodes: OpsGraphNode[]; edges: OpsGraphEdge[] };
+  steps: OpsStep[];
+  candidates: OpsCandidate[];
+  problems: OpsProblem[];
+  tools: OpsTool[];
+  agents: OpsAgentRow[];
+  tasks: Record<string, OpsTask>;
+  timeline: OpsEventRow[];
+}
+export interface OpsAgentSpec {
+  name: string; label: string; description: string; capabilities: string[]; status: string; tools: string[];
+  uses_llm: boolean; tool_choice: string; budget: { llm_calls?: number | null; tool_calls?: number | null; timeout_s: number };
+  slo: Record<string, number>; version: string; in_template: boolean;
+  recent?: { runs: number; ok: number; partial: number; failed: number; success_rate: number | null; p95_ms: number;
+             avg_llm_calls: number; avg_tool_calls: number; missions: number } | null;
+}
+export interface OpsCatalog {
+  agents: OpsAgentSpec[];
+  graph: { nodes: { id: string; label: string }[]; edges: { from: string; to: string; kind: string; label: string }[] };
+  research: string[];
+  discover: string;
+  recent_missions: number;
+}
+export interface OpsHealth { checks: HealthCheck[]; blocked: { tool: string; reason: string; impact: string }[] }

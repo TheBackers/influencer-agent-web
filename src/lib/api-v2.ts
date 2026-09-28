@@ -12,13 +12,14 @@
  *   GET   /api/v2/missions/{id}/stream             → SSE MissionEvent
  *   GET   /api/v2/missions/{id}                    → MissionResult
  *   POST  /api/feedback                            → {ok}
- *   GET   /api/ops/{overview|runs|runs/{id}|scores|observe|health|gates|experiments}
+ *   GET   /api/ops/missions · /api/ops/missions/{id} · /api/ops/agents · /api/ops/health   (AgentOps 콘솔 · 실제 기록)
+ *   GET   /api/ops/{overview|runs|scores|observe|gates|experiments}   (예시 데이터 — 평가 · 배포 판정 API 전)
  *   POST  /api/ops/gate {version}                  → GateDecision
  */
 import type {
   Capabilities, CompiledPlan, ConditionPatch, FeedbackReq, GateDecision, MissionEvent, MissionResult,
   OpsOverview, MissionRunSummary, TraceEvent, EvaluatorScore, AgentScore, ObserveSeries,
-  SLOItem, HealthCheck, ExperimentRow,
+  SLOItem, HealthCheck, ExperimentRow, OpsMissionRow, OpsMissionView, OpsCatalog, OpsHealth,
 } from "@/types/v2";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
@@ -154,6 +155,24 @@ export async function sendFeedback(req: FeedbackReq): Promise<{ ok: boolean }> {
     return { ok: true };
   }
   return http("/api/feedback", { method: "POST", body: JSON.stringify(req) });
+}
+
+// ── AgentOps 콘솔 — 실제 실행 기록 (Supabase agentops · 없으면 서버의 로컬 기록) ─────────────
+export async function listOpsMissions(limit = 30): Promise<OpsMissionRow[]> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsMissions;
+  return (await http<{ missions: OpsMissionRow[] }>(`/api/ops/missions?limit=${limit}`)).missions;
+}
+export async function getOpsMission(id: string): Promise<OpsMissionView> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsMission;
+  return http(`/api/ops/missions/${encodeURIComponent(id)}`);
+}
+export async function getOpsAgents(): Promise<OpsCatalog> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsCatalog;
+  return http("/api/ops/agents");
+}
+export async function getOpsHealth(): Promise<OpsHealth> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsHealth;
+  return http("/api/ops/health");
 }
 
 // ── AgentOps ─────────────────────────────────────────────────────────────────

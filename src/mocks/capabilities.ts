@@ -2,7 +2,7 @@
 import type { Capabilities } from "@/types/v2";
 
 export const capabilities: Capabilities = {
-  condition_types: [
+  "condition_types": [
     {
       "type": "규모",
       "code": true,
@@ -77,7 +77,8 @@ export const capabilities: Capabilities = {
       "type": "협찬·광고",
       "examples": [
         "협찬 사례가 있는",
-        "광고를 안 하는"
+        "광고를 안 하는",
+        "최근 커피 브랜드 협업 안 한"
       ],
       "template": "count(ig.post, caption ~ /#광고|#협찬|#유료광고|#제공/, 0..365d) + count(yt.video, paid_placement or description ~ /유료 광고|협찬/, 0..365d) >= 1",
       "how": "인스타 광고 해시태그 · 유튜브 유료 광고 표시"
@@ -113,6 +114,18 @@ export const capabilities: Capabilities = {
       "how": "속성마다 따로 추정 — 본인 지칭(언니 · 엄마 · 여자 · 남편), 이름 · 소개, 'OO년생' · 'N살', 생활 단계(대학생 · 직장인 · 신혼 · 육아), 콘텐츠 맥락. 확실한 사실만 필요하면 evidence"
     },
     {
+      "type": "성향",
+      "examples": [
+        "제품 단점도 말하는",
+        "솔직한 리뷰를 하는",
+        "내돈내산 위주",
+        "정보 위주로 설명하는",
+        "친근한 말투"
+      ],
+      "template": "evidence('제품 소개 게시물에서 아쉬운 점 · 단점을 직접 적는다', [ig, yt])  + 기준표",
+      "how": "기준표(판정 기준 · 충족 신호 · 반대 신호 · 몇 건 이상)를 만들어 카드에 보여 주고, 검증 에이전트가 최근 게시물 · 영상을 읽어 그 기준대로 판정"
+    },
+    {
       "type": "협업·이력",
       "examples": [
         "삼성과 협업한 적 있는",
@@ -128,7 +141,7 @@ export const capabilities: Capabilities = {
         "광고만 하지 않는"
       ],
       "template": "not evidence('논란 · 사과문', [web])",
-      "how": "위반 근거를 찾았을 때만 탈락 (없음은 증명할 수 없다)"
+      "how": "기사 · 후기 · 본인 콘텐츠에서 기준에 해당하는 근거를 찾으면 탈락, 정해진 범위를 다 찾아도 없으면 통과"
     },
     {
       "type": "팔로워층",
@@ -139,5 +152,5 @@ export const capabilities: Capabilities = {
       "how": "확인 불가 — 남의 계정 인사이트는 API 로 볼 수 없다. 대안: 그 대상을 겨냥한 콘텐츠"
     }
   ],
-  blocked: [],
+  "blocked": []
 };

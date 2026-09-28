@@ -92,6 +92,15 @@ function build(i: number): Dossier {
   const limited = i % 9 === 7;
   const ig = card("instagram", handle, igF, r, growth, sponsoredEvery, limited);
   const yt = card("youtube", handle, ytF, r, growth * (0.9 + r() * 0.3), sponsoredEvery);
+  // 인스타는 account-linker 가 이은 계정 — 찾은 경로 · 근거를 보여 준다. 5명 중 1명은 확신도가 낮아 '확인 필요'
+  const low = i % 5 === 2;
+  if (low) ig.identity_confidence = 0.42;
+  ig.needs_review = low;
+  ig.link = low
+    ? { how_found: `블로그 소개글의 '@${handle}' 표기 → 인스타 조회`, identity_evidence: ["같은 분야(패션) 게시물"],
+        counter_evidence: ["표시 이름이 다름", "상호 링크 없음"], link_source: "https://example.com/blog/1", verified: true, lookup_note: "" }
+    : { how_found: "유튜브 설명란의 'Instagram' 표기 → 인스타 조회", identity_evidence: ["본인 설명란에 적음", "최근 콘텐츠 소재 일치"],
+        counter_evidence: [], link_source: yt.url, verified: true, lookup_note: "" };
   const sponsored = [...ig.recent, ...yt.recent].filter((m) => m.sponsored);
   const ageKnown = i % 3 === 0;
   const signals = ["c5a", "c5b", "c5c", "c5d"].filter((s, k) => (s === "c5b" && limited ? false : (i + k) % 4 !== 3));

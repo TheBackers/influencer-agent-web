@@ -147,6 +147,7 @@ function PlatformTab({ p, kind }: { p: PlatformCard | null; kind: "instagram" | 
   const yt = kind === "youtube";
   return (
     <div className="flex flex-col gap-4">
+      {p.link && <LinkBox p={p} />}
       <dl className="m-0 grid grid-cols-[120px_1fr] gap-y-1.5 text-[13px]">
         <dt className="text-[var(--dim)]">계정</dt>
         <dd className="m-0"><a href={p.url} target="_blank" rel="noopener noreferrer">{p.handle}</a></dd>
@@ -176,6 +177,37 @@ function PlatformTab({ p, kind }: { p: PlatformCard | null; kind: "instagram" | 
             ))}
           </ul>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 다른 플랫폼 계정 — 어떻게 찾았고 왜 같은 사람으로 봤는지. 확신도가 낮아도 보여 주고 '확인 필요'로 표시한다 */
+function LinkBox({ p }: { p: PlatformCard }) {
+  const l = p.link!;
+  return (
+    <div className={`rounded-md border p-3 text-[12.5px] space-y-1.5 ${p.needs_review
+      ? "border-[var(--unknown)]" : "border-[var(--border)]"}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-[13px]">찾은 경로</span>
+        <span className="tabular text-[var(--ink-2)]">같은 사람일 확률 {pct(p.identity_confidence)}</span>
+        {p.needs_review && (
+          <span className="inline-flex h-[20px] items-center rounded px-1.5 text-[11.5px] border border-[var(--unknown)] text-[var(--unknown)]">
+            확인 필요 · 판정에 안 씀
+          </span>
+        )}
+        {!l.verified && <span className="text-[var(--dim)]">API 미확인</span>}
+      </div>
+      <p className="m-0 text-[var(--ink-2)]">{l.how_found}</p>
+      {l.identity_evidence.length > 0 && (
+        <ul className="m-0 pl-4 text-[var(--ink-2)]">{l.identity_evidence.map((x, i) => <li key={i}>{x}</li>)}</ul>
+      )}
+      {l.counter_evidence.length > 0 && (
+        <p className="m-0 text-[var(--dim)]">다른 사람일 수 있는 이유: {l.counter_evidence.join(" · ")}</p>
+      )}
+      {l.lookup_note && <p className="m-0 text-[var(--dim)]">{l.lookup_note}</p>}
+      {l.link_source && (
+        <a href={l.link_source} target="_blank" rel="noopener noreferrer" className="break-all">근거 글 열기</a>
       )}
     </div>
   );
