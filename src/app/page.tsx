@@ -9,6 +9,7 @@ import CoverageBand from "@/components/v2/coverage-band";
 import ResultsToolbar from "@/components/v2/results-toolbar";
 import DossierTable, { type SortKey } from "@/components/v2/dossier-table";
 import DossierDrawer from "@/components/v2/dossier-drawer";
+import type { FeedbackInput } from "@/components/v2/feedback-bar";
 import { compilePlan, followMission, getMission, patchCondition, revisePlan, sendFeedback, startMission, USE_MOCK } from "@/lib/api-v2";
 import { STEP_TEMPLATE } from "@/mocks/mission";
 import type { CompiledPlan, ConditionPatch, Dossier, MissionResult, MissionStep } from "@/types/v2";
@@ -91,7 +92,7 @@ export default function SearchPage() {
         const st = ev.step;
         setSteps((prev) => prev.map((s) => (s.key === st.key ? { ...s, ...st } : s)));
       } else if (ev.t === "log" || ev.t === "intervention" || ev.t === "error") {
-        if (ev.t === "error") clearInterval(tick); // 임무 실패 · 연결 끊김 — 시계를 멈추고 로그에 남긴다
+        if (ev.t === "error") clearInterval(tick); // 검색 실패 · 연결 끊김 — 시계를 멈추고 로그에 남긴다
         setLogs((prev) => [...prev, { at: ev.at, text: ev.text ?? "", kind: ev.t === "log" ? "log" : ev.t === "error" ? "error" : "intervention" }]);
       } else if (ev.t === "done") {
         clearInterval(tick);
@@ -129,9 +130,9 @@ export default function SearchPage() {
     return [...result.dossiers].sort((a, b) => sorters[sort](b) - sorters[sort](a)).slice(0, result.plan.estimate.count);
   }, [result, sort]);
 
-  const giveFeedback = async (d: Dossier, score: 0 | 1, comment: string) => {
-    await sendFeedback({ mission_id: missionRef.current || (result?.mission_id ?? ""), run_id: d.run_id, handle: d.handle, score, comment });
-    setFeedback((f) => ({ ...f, [d.handle]: score }));
+  const giveFeedback = async (d: Dossier, f: FeedbackInput) => {
+    await sendFeedback({ mission_id: missionRef.current || (result?.mission_id ?? ""), run_id: d.run_id, handle: d.handle, ...f });
+    setFeedback((m) => ({ ...m, [d.handle]: f.score }));
   };
 
   const locked = phase === "running" || phase === "done";
@@ -172,6 +173,24 @@ export default function SearchPage() {
           <ResultsToolbar result={result} list={list} />
           <CoverageBand result={result} />
           <DossierTable list={list} sort={sort} onSort={setSort} onOpen={setOpen} selected={open?.handle} />
+          {!!result.needs_review?.length && (
+            <details className="text-[13px] surface px-3.5 py-2.5" open={list.length === 0}>
+              <summary className="cursor-pointer">
+                <span className="font-medium">팔로워 확인 필요 {result.needs_review.length}명</span>
+                <span className="text-[var(--dim)]"> — 인스타 API 로 조회가 안 됐습니다(개인 계정이거나 없는 계정). 눌러서 직접 확인하세요</span>
+              </summary>
+              <ul className="mt-2 mb-0 pl-0 list-none space-y-1.5">
+                {result.needs_review.map((r) => (
+                  <li key={r.handle} className="flex flex-wrap items-baseline gap-x-2">
+                    {r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" translate="no" className="font-medium">{r.handle}</a>
+                      : <span translate="no" className="font-medium">{r.handle}</span>}
+                    {r.source_url && <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="text-[12px]">찾은 글</a>}
+                    {r.why && <span className="text-[12px] text-[var(--dim)] min-w-0 break-words">{r.why}</span>}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <details className="text-[13px]">
             <summary className="cursor-pointer text-[var(--dim)]">제외된 후보 {result.rejected.reduce((a, r) => a + r.count, 0)}명</summary>
             <ul className="mt-1.5 mb-0 pl-5 text-[var(--ink-2)] tabular">
@@ -183,7 +202,7 @@ export default function SearchPage() {
 
       {open && result && (
         <DossierDrawer key={open.handle} d={open} conditions={result.plan.conditions} missionId={result.mission_id} traceUrl={result.trace_url}
-          feedback={feedback[open.handle]} onFeedback={(s, c) => giveFeedback(open, s, c)} onClose={() => setOpen(null)} />
+          feedback={feedback[open.handle]} onFeedback={(f) => giveFeedback(open, f)} onClose={() => setOpen(null)} />
       )}
     </main>
   );

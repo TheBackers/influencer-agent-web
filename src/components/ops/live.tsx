@@ -9,7 +9,7 @@
  * 상태색은 상태에만 쓰고, 색만으로 구분하지 않게 아이콘과 글자를 함께 둔다.
  */
 import { useEffect, useRef } from "react";
-import { AlertTriangle, CheckCircle2, CircleDashed, Info, MinusCircle, OctagonAlert, X, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDashed, Info, MinusCircle, OctagonAlert, ThumbsDown, ThumbsUp, X, XCircle } from "lucide-react";
 import type { OpsCandidate, OpsGraphEdge, OpsGraphNode, OpsProblem, OpsStep, OpsTask, OpsTool, OpsAgentRow, Severity, TaskStatus } from "@/types/v2";
 
 // ── 상태 · 심각도 ────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ function nodeColors(status: string, live: boolean) {
 }
 
 /**
- * 총괄 그래프 — live=false 면 구성만(에이전트 화면), true 면 이번 임무에서 어떻게 돌았는지(상태 · 횟수 · 탄 갈림길).
+ * 총괄 그래프 — live=false 면 구성만(에이전트 화면), true 면 이번 검색에서 어떻게 돌았는지(상태 · 횟수 · 탄 갈림길).
  * 노드 · 단계를 누르면 onPick(id) — 추적 화면이 그 단계의 후보 칸을 강조한다.
  */
 export function RunGraph({ nodes, edges, steps, live = true, picked, onPick }: {
@@ -118,7 +118,7 @@ export function RunGraph({ nodes, edges, steps, live = true, picked, onPick }: {
         {live && fan && <text x="425" y="67" textAnchor="middle" fontSize="10" fill="var(--accent)">×{fan.count}</text>}
         <text x="842" y="160" fontSize="10" fill="var(--dim)">팬인</text>
 
-        {/* 갈림길 — 이번 임무에서 탔으면 파란 실선 + 횟수 */}
+        {/* 갈림길 — 이번 검색에서 탔으면 파란 실선 + 횟수 */}
         <path d="M914 178 L914 134" fill="none" stroke={hot(loopR) ? "var(--accent)" : "var(--border-strong)"} strokeWidth={hot(loopR) ? 2 : 1.3}
           strokeDasharray={hot(loopR) ? undefined : "4 3"} markerEnd={`url(#ops-${hot(loopR) ? "a1" : "a0"})`} />
         <text x="920" y="152" fontSize="10" fill={hot(loopR) ? "var(--accent)" : "var(--dim)"}>재조사{live ? ` ${loopR?.count ?? 0}` : ""}</text>
@@ -219,6 +219,10 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
               <td className="px-2 py-1.5">
                 {c.verdict === "pass" ? <StatusChip s="ok" small /> : c.verdict === "fail" ? (
                   <span className="text-[11.5px] text-[var(--dim)]">탈락</span>) : <span className="text-[var(--dim)]">—</span>}
+                {c.feedback && (c.feedback.score === 1
+                  ? <span className="flex items-center gap-1 mt-0.5 text-[11px] text-[var(--pass)]"><ThumbsUp size={11} aria-hidden />맞음</span>
+                  : <span className="flex items-center gap-1 mt-0.5 text-[11px] text-[var(--fail)] whitespace-nowrap" title={[c.feedback.reason_label, c.feedback.condition_id, c.feedback.comment].filter(Boolean).join(" · ")}>
+                      <ThumbsDown size={11} aria-hidden />{c.feedback.reason_label || "안 맞음"}</span>)}
               </td>
               {steps.map((s) => {
                 const cell = c.cells[s.agent];
@@ -255,7 +259,7 @@ export function ProblemList({ problems, agentLabel, onEvents }: {
   if (!problems.length) {
     return (
       <p className="m-0 flex items-center gap-2 text-[13px]" style={{ color: "var(--pass)" }}>
-        <CheckCircle2 aria-hidden size={15} /> 이 임무에서 찾은 문제가 없습니다.
+        <CheckCircle2 aria-hidden size={15} /> 이 검색에서 찾은 문제가 없습니다.
       </p>
     );
   }
@@ -342,9 +346,9 @@ export function ToolTable({ tools }: { tools: OpsTool[] }) {
 const TYPE_KO: Record<string, string> = {
   "agent.started": "시작", "agent.finished": "끝", "llm.called": "LLM", "tool.called": "툴", "tool.cache_hit": "캐시",
   "overseer.intervened": "감독관", "policy.violated": "규칙 위반", error: "오류", retry: "재시도", "budget.warned": "예산 경고",
-  "account.linked": "계정 연결", "account.rejected": "계정 버림", "tool.provider_dead": "공급사 빠짐",
+  "account.linked": "계정 연결", "account.rejected": "계정 버림", "tool.provider_dead": "공급사 빠짐", "feedback.recorded": "사람 평가",
   "supervisor.planned": "계획", "supervisor.dispatched": "배정", "supervisor.reviewed": "검토",
-  "mission.started": "임무 시작", "mission.finished": "임무 끝", "condition.compiled": "조건", "condition.coverage": "확인률",
+  "mission.started": "검색 시작", "mission.finished": "검색 끝", "condition.compiled": "조건", "condition.coverage": "확인률",
 };
 const BAD = new Set(["error", "overseer.intervened", "policy.violated", "tool.provider_dead", "account.rejected"]);
 

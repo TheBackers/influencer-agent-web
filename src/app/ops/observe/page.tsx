@@ -47,14 +47,14 @@ export default function ObservePage() {
           <BarList unit="s" rows={series.map((s) => ({ label: s.agent, value: s.p95_s, target: target(s.agent), sub: `p50 ${s.p50_s}s · p99 ${s.p99_s}s` }))} />
         </section>
         <section className="panel" aria-labelledby="cost-title">
-          <h2 id="cost-title" className="m-0 mb-2 text-[14.5px] font-semibold">에이전트별 비용 / 임무</h2>
+          <h2 id="cost-title" className="m-0 mb-2 text-[14.5px] font-semibold">에이전트별 비용 / 검색</h2>
           <BarList unit="" format={(v) => `$${v.toFixed(3)}`} rows={series.map((s) => ({ label: s.agent, value: s.cost_usd, sub: `토큰 ${s.tokens_in.toLocaleString()} / ${s.tokens_out.toLocaleString()}` }))} />
           <p className="m-0 mt-1 text-[12px] text-[var(--dim)]">인스타·유튜브·도시에 에이전트는 코드만 돌아 LLM 비용이 0입니다.</p>
         </section>
       </div>
 
       <section className="panel !p-0 overflow-hidden" aria-labelledby="tok-title">
-        <h2 id="tok-title" className="m-0 px-4 pt-3 pb-2 text-[14.5px] font-semibold">에이전트별 상세 (임무 평균)</h2>
+        <h2 id="tok-title" className="m-0 px-4 pt-3 pb-2 text-[14.5px] font-semibold">에이전트별 상세 (검색 평균)</h2>
         <div className="relative overflow-x-auto">
           <table className="w-full border-collapse text-[12.5px] tabular">
             <thead className="bg-[var(--soft)]">

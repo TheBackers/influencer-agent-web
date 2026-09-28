@@ -87,7 +87,7 @@ export interface MissionEstimate {
   minutes: [number, number];
   budget_usd?: number;
   cost_high_usd?: number; // 발굴 후보를 끝까지 다 판정할 때 (최대)
-  basis?: string; // 추정 근거 — '최근 실제 임무 N건 실측' · '기본 단가'
+  basis?: string; // 추정 근거 — '최근 실제 검색 N건 실측' · '기본 단가'
 }
 
 /** CompiledPlan — 조건 승인 화면 전체 */
@@ -113,7 +113,7 @@ export interface ConditionPatch {
   min_hits?: number; // 기준표 — 충족 신호 콘텐츠 몇 건 이상
 }
 
-// ── 임무 진행 (supervisor) ────────────────────────────────────────────────────
+// ── 검색 진행 (supervisor) ────────────────────────────────────────────────────
 export type StepStatus = "waiting" | "running" | "done" | "skipped";
 
 export interface MissionStep {
@@ -241,6 +241,8 @@ export interface MissionResult {
   extra_passed: number;
   coverage: ConditionCoverage[];
   rejected: { stage: string; reason: string; count: number }[];
+  /** 인스타 조회가 안 돼 팔로워를 못 본 계정 — 탈락이 아니라 사람이 직접 확인할 것 */
+  needs_review?: { handle: string; platform: string; url: string; source_url: string; why: string; reason: string }[];
   cost: { usd: number; llm_calls: number; youtube_units: number; searches: number };
   elapsed_s: number;
   interventions: { rule: string; text: string; count: number }[];
@@ -248,11 +250,14 @@ export interface MissionResult {
   mock: boolean;
 }
 
+export type FeedbackReason = "wrong_person" | "wrong_condition" | "not_fit" | "wrong_info" | "other";
 export interface FeedbackReq {
   mission_id: string;
   run_id: string;
   handle: string;
   score: 0 | 1;
+  reason?: FeedbackReason; // 안 맞음 이유
+  condition_id?: string;   // reason = wrong_condition 일 때 어느 조건
   comment?: string;
 }
 
@@ -339,7 +344,7 @@ export interface MissionRunSummary {
 
 export interface TraceEvent {
   event_id: string;
-  ts: number; // 임무 시작 기준 초
+  ts: number; // 검색 시작 기준 초
   dur?: number; // 초
   type: string;
   agent: string;
@@ -421,6 +426,7 @@ export interface OpsCandidate {
   usd: number;
   problems: number;
   verdict?: "pass" | "fail";
+  feedback?: { score: 0 | 1; reason: string; reason_label: string; condition_id: string; comment: string };
   linked?: { platform: string; id: string; confidence: number };
 }
 export interface OpsProblem {
@@ -449,6 +455,7 @@ export interface OpsMissionView {
     tokens_in: number; llm_calls: number; tool_calls: number; cache_hits: number; events: number;
     interventions: number; errors: number; env: string; version: string; critical: number; warning: number;
     mode?: string; cost_by_agent_usd?: number; verify_runs?: number; verified_candidates?: number;
+    fb_up?: number; fb_down?: number;
   };
   graph: { nodes: OpsGraphNode[]; edges: OpsGraphEdge[] };
   steps: OpsStep[];
@@ -465,6 +472,23 @@ export interface OpsAgentSpec {
   slo: Record<string, number>; version: string; in_template: boolean;
   recent?: { runs: number; ok: number; partial: number; failed: number; success_rate: number | null; p95_ms: number;
              avg_llm_calls: number; avg_tool_calls: number; missions: number; usd?: number; avg_usd?: number } | null;
+}
+export interface OpsTrendRow {
+  mission_id: string; started_at: string; request: string; status: string; mode: string; version: string;
+  cost_usd: number | null; duration_s: number | null; requested: number | null; returned: number | null;
+  fill_rate: number | null; usd_per_person: number | null; critical: number; warning: number; top_problem: string;
+  verify_runs: number | null; verified_candidates: number | null; fb_up: number; fb_down: number;
+}
+export interface OpsFeedbackItem {
+  event_id: string; ts: string; mission_id: string; request: string; handle: string; score: 0 | 1;
+  reason: FeedbackReason | ""; reason_label: string; agent: string; condition_id: string; comment: string; version: string;
+}
+export interface OpsFeedback {
+  items: OpsFeedbackItem[];
+  summary: { total: number; up: number; down: number; fit_rate: number | null;
+             reasons: { reason: FeedbackReason; label: string; agent: string; count: number }[];
+             agents: { agent: string; count: number }[] };
+  reasons: { reason: FeedbackReason; label: string; agent: string }[];
 }
 export interface OpsCatalog {
   agents: OpsAgentSpec[];

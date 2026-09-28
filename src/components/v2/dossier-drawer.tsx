@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import type { ConditionSpec, Dossier, PlatformCard, WebItem, WebKind } from "@/types/v2";
 import { Avatar, VerdictBadge, compact, num, pct } from "./ui";
-import FeedbackBar from "./feedback-bar";
+import FeedbackBar, { type FeedbackInput } from "./feedback-bar";
 
 type Tab = "summary" | "instagram" | "youtube" | "web" | "checks";
 const TABS: { key: Tab; label: string }[] = [
@@ -21,7 +21,7 @@ interface Props {
   missionId: string;
   traceUrl: string;
   feedback?: 0 | 1;
-  onFeedback: (score: 0 | 1, comment: string) => Promise<void>;
+  onFeedback: (f: FeedbackInput) => Promise<void>;
   onClose: () => void;
 }
 
@@ -70,7 +70,7 @@ export default function DossierDrawer({ d, conditions, traceUrl, feedback, onFee
       </div>
 
       <footer className="border-t border-[var(--border)] px-5 py-3.5 shrink-0 space-y-2.5">
-        <FeedbackBar key={d.handle} value={feedback} onSubmit={onFeedback} />
+        <FeedbackBar key={d.handle} value={feedback} conditions={conditions} onSubmit={onFeedback} />
         <p className="m-0 text-[12px] text-[var(--dim)] tabular flex flex-wrap gap-x-3">
           <span>조사 비용 ${d.usage.cost_usd.toFixed(3)}, 도구 {d.usage.tool_calls}회, {d.usage.latency_s}초</span>
           <a href={traceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">실행 기록 보기<ExternalLink size={11} aria-hidden /></a>

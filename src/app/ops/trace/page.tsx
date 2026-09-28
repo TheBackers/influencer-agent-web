@@ -22,7 +22,7 @@ export default function TracePage() {
   );
 }
 
-/** 임무 추적 — 한 건이 어떻게 돌았고 어디서 문제가 났나. 위에서 아래로: 문제 → 그래프 → 후보 격자 → 시간 · 툴 */
+/** 검색 추적 — 한 건이 어떻게 돌았고 어디서 문제가 났나. 위에서 아래로: 문제 → 그래프 → 후보 격자 → 시간 · 툴 */
 function Trace() {
   const q = useSearchParams();
   const router = useRouter();
@@ -71,7 +71,7 @@ function Trace() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="mission" className="text-[12.5px] text-[var(--dim)]">임무</label>
+        <label htmlFor="mission" className="text-[12.5px] text-[var(--dim)]">검색</label>
         <select id="mission" value={mid} onChange={(e) => router.replace(`/ops/trace?m=${e.target.value}`)}
           className="h-[32px] max-w-full min-w-0 flex-1 md:flex-none md:w-[560px] px-2 rounded-md border border-[var(--border-strong)] text-[13px]">
           {!rows.some((r) => r.mission_id === mid) && mid && <option value={mid}>{mid}</option>}
@@ -84,7 +84,7 @@ function Trace() {
 
       {v && s && (
         <>
-          <section className="surface px-4 py-3" aria-label="임무 요약">
+          <section className="surface px-4 py-3" aria-label="검색 요약">
             <p className="m-0 text-[14px] font-medium">{s.request || "(요청문 없음)"}</p>
             <dl className="m-0 mt-2 flex flex-wrap gap-x-6 gap-y-1.5 text-[12.5px] tabular">
               <Stat k="상태"><StatusChip s={s.status === "ok" ? "ok" : s.status === "failed" ? "failed" : s.status === "running" ? "running" : "partial"} /></Stat>
@@ -94,6 +94,7 @@ function Trace() {
               {s.verify_runs != null && <Stat k="조건 판정" bad={!!s.verified_candidates && s.verify_runs > s.verified_candidates * 1.5}>{s.verify_runs}회 / 후보 {s.verified_candidates ?? "—"}명</Stat>}
               <Stat k="LLM">{s.llm_calls}회 · 입력 {s.tokens_in.toLocaleString()}토큰</Stat>
               <Stat k="툴">{s.tool_calls}회 · 캐시 {s.cache_hits}</Stat>
+              {((s.fb_up ?? 0) + (s.fb_down ?? 0)) > 0 && <Stat k="사람 평가" bad={(s.fb_down ?? 0) > 0}>맞음 {s.fb_up ?? 0} · 안 맞음 {s.fb_down ?? 0}</Stat>}
               <Stat k="감독관 개입" bad={s.interventions > 2}>{s.interventions}</Stat>
               <Stat k="환경"><span translate="no">{s.env} · {s.version}</span></Stat>
             </dl>

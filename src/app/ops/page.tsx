@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { TrendPanels } from "@/components/ops/trend";
 import { OctagonAlert } from "lucide-react";
 import { SeverityChip, StatusChip, secs, usd } from "@/components/ops/live";
-import { getOpsAgents, getOpsHealth, listOpsMissions } from "@/lib/api-v2";
-import type { OpsCatalog, OpsHealth, OpsMissionRow } from "@/types/v2";
+import { getOpsAgents, getOpsHealth, getOpsTrend, listOpsMissions } from "@/lib/api-v2";
+import type { OpsCatalog, OpsHealth, OpsMissionRow, OpsTrendRow } from "@/types/v2";
 
 const MSTATUS: Record<string, string> = { ok: "ok", partial: "partial", failed: "failed", running: "running", compile: "waiting" };
 const when = (iso: string) => {
@@ -16,18 +18,26 @@ const when = (iso: string) => {
   }
 };
 
-/** AgentOps 개요 — 지금 막힌 것 · 최근 임무(문제 있는 것이 눈에 띄게) · 에이전트 상태 */
+/** AgentOps 개요 — 지금 막힌 것 · 최근 검색(문제 있는 것이 눈에 띄게) · 에이전트 상태 */
 export default function OpsOverviewPage() {
   const [rows, setRows] = useState<OpsMissionRow[] | null>(null);
   const [health, setHealth] = useState<OpsHealth | null>(null);
   const [cat, setCat] = useState<OpsCatalog | null>(null);
   const [err, setErr] = useState("");
+  const [trend, setTrend] = useState<OpsTrendRow[] | null>(null);
+  const [trendErr, setTrendErr] = useState("");
+  const [withMock, setWithMock] = useState<boolean | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     listOpsMissions().then(setRows).catch((e) => setErr(String(e?.message || e)));
     getOpsHealth().then(setHealth).catch(() => setHealth({ checks: [], blocked: [] }));
     getOpsAgents().then(setCat).catch(() => null);
+    getOpsTrend(40).then(setTrend).catch((e) => setTrendErr(String(e?.message || e)));
   }, []);
+  const hasReal = !!trend?.some((r) => r.mode !== "mock");
+  const showMock = withMock ?? !hasReal; // 실제 실행이 있으면 모의 실행은 기본으로 뺀다
+  const trendRows = useMemo(() => (trend ?? []).filter((r) => r.status !== "running" && (showMock || r.mode !== "mock")), [trend, showMock]);
 
   const reds = health?.checks.filter((c) => c.status === "red") ?? [];
 
@@ -48,13 +58,26 @@ export default function OpsOverviewPage() {
         </section>
       ) : null}
 
+      <section className="surface px-4 py-3" aria-labelledby="tr-title">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
+          <h2 id="tr-title" className="m-0 text-[14px] font-semibold">검색 추이</h2>
+          <span className="text-[12.5px] text-[var(--dim)]">최근 {trendRows.length}건 · 배포 뒤 비용이 늘거나 결과 · 평가가 나빠졌는지 봅니다</span>
+          <label className="ml-auto inline-flex items-center gap-1.5 text-[12.5px] text-[var(--dim)]">
+            <input type="checkbox" checked={showMock} onChange={(e) => setWithMock(e.target.checked)} /> 모의 실행 포함
+          </label>
+        </div>
+        {trendErr && <p className="m-0 text-[13px] text-[var(--fail)]">추이를 불러오지 못했습니다: {trendErr}</p>}
+        {!trend && !trendErr && <p className="m-0 text-[13px] text-[var(--dim)]">불러오는 중…</p>}
+        {trend && <TrendPanels rows={trendRows} onPick={(mid) => router.push(`/ops/trace?m=${mid}`)} />}
+      </section>
+
       <section className="surface" aria-labelledby="m-title">
         <div className="flex items-baseline gap-2 px-4 pt-3.5 pb-2">
-          <h2 id="m-title" className="m-0 text-[14px] font-semibold">최근 임무</h2>
-          <span className="text-[12.5px] text-[var(--dim)]">줄을 누르면 그 임무가 어떻게 돌았는지 봅니다</span>
+          <h2 id="m-title" className="m-0 text-[14px] font-semibold">최근 검색</h2>
+          <span className="text-[12.5px] text-[var(--dim)]">줄을 누르면 그 검색이 어떻게 돌았는지 봅니다</span>
         </div>
         {err && <p className="m-0 px-4 pb-3 text-[13px] text-[var(--fail)]">기록을 불러오지 못했습니다: {err}</p>}
-        {rows && !rows.length && <p className="m-0 px-4 pb-3 text-[13px] text-[var(--dim)]">아직 실행한 임무가 없습니다. 검색을 한 번 실행하세요.</p>}
+        {rows && !rows.length && <p className="m-0 px-4 pb-3 text-[13px] text-[var(--dim)]">아직 기록이 없습니다. 검색을 한 번 실행하세요.</p>}
         {rows && rows.length > 0 && (
           <div className="relative overflow-x-auto">
             <table className="w-full border-collapse text-[12.5px] tabular min-w-[760px]">
@@ -103,7 +126,7 @@ export default function OpsOverviewPage() {
         <section className="surface" aria-labelledby="a-title">
           <div className="flex items-baseline gap-2 px-4 pt-3.5 pb-2">
             <h2 id="a-title" className="m-0 text-[14px] font-semibold">에이전트 상태</h2>
-            <span className="text-[12.5px] text-[var(--dim)]">최근 임무 {cat.recent_missions}건 기준</span>
+            <span className="text-[12.5px] text-[var(--dim)]">최근 검색 {cat.recent_missions}건 기준</span>
             <Link href="/ops/agents" className="ml-auto text-[12.5px]">구성 · 명세 보기</Link>
           </div>
           <div className="relative overflow-x-auto">

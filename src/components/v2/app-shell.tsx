@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Activity, ListTree, Network, Stethoscope } from "lucide-react";
+import { Search, Activity, ListTree, Network, Stethoscope, ThumbsUp } from "lucide-react";
 import { USE_MOCK } from "@/lib/api-v2";
 
 const NAV = [
   { href: "/", label: "인플루언서 검색", icon: Search, exact: true },
   { group: "AgentOps" },
   { href: "/ops", label: "개요", icon: Activity, exact: true },
-  { href: "/ops/trace", label: "임무 추적", icon: ListTree },
+  { href: "/ops/trace", label: "검색 추적", icon: ListTree },
+  { href: "/ops/feedback", label: "사람 평가", icon: ThumbsUp },
   { href: "/ops/agents", label: "에이전트", icon: Network },
   { href: "/ops/diagnose", label: "진단", icon: Stethoscope },
 ] as const;

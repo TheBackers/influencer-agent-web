@@ -120,7 +120,7 @@ export function TrendLine({ points, threshold }: { points: { date: string; value
 
 const LANE_ORDER = ["총괄", "조건 컴파일", "사람 확인", "발굴", "인스타 ×75", "유튜브 ×75", "웹 ×75", "감독관", "판정", "도시에"];
 
-/** 임무 타임라인(워터폴) — 레인 = 에이전트. 사람 대기는 회색 빗금, 부분 성공은 주황, 점 이벤트는 마름모 */
+/** 검색 타임라인(워터폴) — 레인 = 에이전트. 사람 대기는 회색 빗금, 부분 성공은 주황, 점 이벤트는 마름모 */
 export function MissionTimeline({ events, onPick }: { events: TraceEvent[]; onPick?: (e: TraceEvent) => void }) {
   const [tip, setTip] = useState<Tip>(null);
   if (!events.length) return null;
@@ -140,7 +140,7 @@ export function MissionTimeline({ events, onPick }: { events: TraceEvent[]; onPi
   };
   return (
     <div className="relative overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[900px] min-w-[640px] h-auto" role="img" aria-label="임무 이벤트 타임라인" onMouseLeave={() => setTip(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[900px] min-w-[640px] h-auto" role="img" aria-label="검색 이벤트 타임라인" onMouseLeave={() => setTip(null)}>
         <defs>
           <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="6" height="6" fill="var(--soft)" />

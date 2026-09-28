@@ -12,14 +12,14 @@
  *   GET   /api/v2/missions/{id}/stream             → SSE MissionEvent
  *   GET   /api/v2/missions/{id}                    → MissionResult
  *   POST  /api/feedback                            → {ok}
- *   GET   /api/ops/missions · /api/ops/missions/{id} · /api/ops/agents · /api/ops/health   (AgentOps 콘솔 · 실제 기록)
+ *   GET   /api/ops/missions · /api/ops/missions/{id} · /api/ops/agents · /api/ops/health · /api/ops/trend · /api/ops/feedback   (AgentOps 콘솔 · 실제 기록)
  *   GET   /api/ops/{overview|runs|scores|observe|gates|experiments}   (예시 데이터 — 평가 · 배포 판정 API 전)
  *   POST  /api/ops/gate {version}                  → GateDecision
  */
 import type {
   Capabilities, CompiledPlan, ConditionPatch, FeedbackReq, GateDecision, MissionEvent, MissionResult,
   OpsOverview, MissionRunSummary, TraceEvent, EvaluatorScore, AgentScore, ObserveSeries,
-  SLOItem, HealthCheck, ExperimentRow, OpsMissionRow, OpsMissionView, OpsCatalog, OpsHealth,
+  SLOItem, HealthCheck, ExperimentRow, OpsMissionRow, OpsMissionView, OpsCatalog, OpsHealth, OpsTrendRow, OpsFeedback,
 } from "@/types/v2";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
@@ -103,7 +103,7 @@ export async function revisePlan(plan: CompiledPlan, instruction: string): Promi
   return http(`/api/v2/plans/${plan.plan_id}/revise`, { method: "POST", body: JSON.stringify({ instruction }) });
 }
 
-// ── 임무 실행 ────────────────────────────────────────────────────────────────
+// ── 검색 실행 ────────────────────────────────────────────────────────────────
 export async function startMission(plan: CompiledPlan): Promise<{ mission_id: string }> {
   if (USE_MOCK) return { mission_id: "m_mock_fashion30" };
   return http("/api/v2/missions", { method: "POST", body: JSON.stringify({ plan_id: plan.plan_id }) });
@@ -169,6 +169,14 @@ export async function getOpsMission(id: string): Promise<OpsMissionView> {
 export async function getOpsAgents(): Promise<OpsCatalog> {
   if (USE_MOCK) return (await import("@/mocks/ops-live")).opsCatalog;
   return http("/api/ops/agents");
+}
+export async function getOpsTrend(limit = 30): Promise<OpsTrendRow[]> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsTrend;
+  return (await http<{ rows: OpsTrendRow[] }>(`/api/ops/trend?limit=${limit}`)).rows;
+}
+export async function getOpsFeedback(limit = 200): Promise<OpsFeedback> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsFeedback;
+  return http(`/api/ops/feedback?limit=${limit}`);
 }
 export async function getOpsHealth(): Promise<OpsHealth> {
   if (USE_MOCK) return (await import("@/mocks/ops-live")).opsHealth;

@@ -1,5 +1,5 @@
 /**
- * 목업 — 임무 진행 이벤트. 실제로는 `GET /api/v2/missions/{id}/stream` (SSE) 이 보낸다.
+ * 목업 — 검색 진행 이벤트. 실제로는 `GET /api/v2/missions/{id}/stream` (SSE) 이 보낸다.
  * 약 7초 동안 총괄 → 워커 순서로 진행을 흉내 낸다.
  */
 import type { MissionEvent, MissionResult, MissionStep, CompiledPlan } from "@/types/v2";
@@ -79,6 +79,12 @@ export function mockResult(plan: CompiledPlan): MissionResult {
       { stage: "발굴", reason: "팔로워·주제 선별에서 제외", count: 124 },
       { stage: "판정", reason: "'뜨고 있는' 신호 2개 미만", count: 18 },
       { stage: "판정", reason: "동일인물 확신 0.8 미만", count: 7 },
+    ],
+    needs_review: [
+      { handle: "@daily.lookbook_", platform: "instagram", url: "https://www.instagram.com/daily.lookbook_/", source_url: "https://example.com/blog/fashion-accounts",
+        why: "소개글: 요즘 뜨는 데일리룩 계정 @daily.lookbook_ 코디가 깔끔해요", reason: "팔로워 확인 필요 (인스타 조회 불가 — 개인 계정이거나 없는 계정)" },
+      { handle: "@minimal.closet", platform: "instagram", url: "https://www.instagram.com/minimal.closet/", source_url: "",
+        why: "", reason: "팔로워 확인 필요 (인스타 조회 불가 — 개인 계정이거나 없는 계정)" },
     ],
     cost: { usd: 0.43, llm_calls: 214, youtube_units: 1462, searches: 131 },
     elapsed_s: 372,

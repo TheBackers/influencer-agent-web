@@ -42,7 +42,7 @@ export default function AgentsPage() {
       <section className="surface" aria-labelledby="a-title">
         <div className="flex flex-wrap items-baseline gap-x-3 px-4 pt-3.5 pb-2">
           <h2 id="a-title" className="m-0 text-[14px] font-semibold">에이전트 {cat.agents.length}개</h2>
-          <span className="text-[12.5px] text-[var(--dim)]">최근 임무 {cat.recent_missions}건 성적 · 명세는 agent/agents/*/agent.yaml</span>
+          <span className="text-[12.5px] text-[var(--dim)]">최근 검색 {cat.recent_missions}건 성적 · 명세는 agent/agents/*/agent.yaml</span>
         </div>
         <div className="relative overflow-x-auto">
           <table className="w-full border-collapse text-[12.5px] tabular min-w-[900px]">
@@ -66,7 +66,7 @@ export default function AgentsPage() {
                     <td className="px-3 py-2 min-w-[220px]">{a.description}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{off ? "—" : a.tool_choice}</td>
                     <td className="px-3 py-2"><span translate="no" className="text-[11.5px]">{a.tools.join(", ") || "—"}</span></td>
-                    <td className="px-3 py-2 whitespace-nowrap">{STATUS_KO[a.status] ?? a.status}{a.in_template && !off && <div className="text-[11px] text-[var(--dim)]">임무에 포함</div>}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{STATUS_KO[a.status] ?? a.status}{a.in_template && !off && <div className="text-[11px] text-[var(--dim)]">기본 단계</div>}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-[var(--dim)]">{off ? "—" : `${a.budget.llm_calls ?? "∞"} · ${a.budget.tool_calls ?? "∞"} · ${a.budget.timeout_s}s`}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{r ? `${r.runs}회` : "—"}</td>
                     <td className={`px-3 py-2 whitespace-nowrap font-semibold ${r?.success_rate == null ? "" : r.success_rate < 0.8 ? "text-[var(--fail)]" : r.success_rate < 0.95 ? "text-[var(--unknown)]" : "text-[var(--pass)]"}`}>

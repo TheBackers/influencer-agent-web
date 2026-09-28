@@ -34,7 +34,7 @@ export const evaluators: EvaluatorScore[] = [
   { key: "gold_agreement", label: "정답 판정 일치", target: "verifier", method: "코드", score: 0.79, threshold: 0.8, op: ">=", critical: false, baseline: 0.83 },
   { key: "merge_precision", label: "잘못 합친 계정 없음", target: "profiler", method: "코드", score: 0.97, threshold: 0.95, op: ">=", critical: true, baseline: 0.97 },
   { key: "dossier_complete", label: "필수 칸 채움", target: "profiler", method: "코드", score: 0.88, threshold: 0.8, op: ">=", critical: false, baseline: 0.87 },
-  { key: "intervention_rate", label: "임무당 개입 ≤ 2", target: "감독관", method: "코드", score: 0.86, threshold: 0.9, op: ">=", critical: false, baseline: 0.95 },
+  { key: "intervention_rate", label: "검색당 개입 ≤ 2", target: "감독관", method: "코드", score: 0.86, threshold: 0.9, op: ">=", critical: false, baseline: 0.95 },
 ];
 
 export function composite(list: EvaluatorScore[], useBaseline = false) {
@@ -65,15 +65,15 @@ export const health: HealthCheck[] = [
   { id: "H6", label: "SLO 소진", kind: "운영", status: "green", value: "24h 전부 충족", rule: "24h SLO 전부 충족" },
   { id: "H7", label: "오류 군집", kind: "운영", status: "green", value: "최다 시그니처 2회/24h", rule: "같은 시그니처 < 3회/24h" },
   { id: "H8", label: "드리프트", kind: "품질", status: "green", value: "온라인 − 오프라인 = −0.02", rule: "≥ −0.05" },
-  { id: "H9", label: "감독관 개입률", kind: "품질", status: "yellow", value: "O5 1.4회/임무", rule: "임무당 ≤ 1", cause_agent: "verifier", traces: ["run_v1", "run_v2", "run_v3"], action: "verifier 근거 URL 규칙 점검" },
+  { id: "H9", label: "감독관 개입률", kind: "품질", status: "yellow", value: "O5 1.4회/검색", rule: "검색당 ≤ 1", cause_agent: "verifier", traces: ["run_v1", "run_v2", "run_v3"], action: "verifier 근거 URL 규칙 점검" },
   { id: "H10", label: "트레이스 무결성", kind: "운영", status: "green", value: "짝 없는 이벤트 0 · 고아 span 0", rule: "0건" },
 ];
 
 export const slo: SLOItem[] = [
-  { key: "p95", label: "임무 p95 (10명 기준, 사람 대기 제외)", value: 188, unit: "s", target: 240, op: "<=", pass: true },
+  { key: "p95", label: "검색 p95 (10명 기준, 사람 대기 제외)", value: 188, unit: "s", target: 240, op: "<=", pass: true },
   { key: "first", label: "첫 결과까지", value: 71, unit: "s", target: 90, op: "<=", pass: true },
   { key: "cost", label: "비용 / 요청 인원", value: 0.015, unit: "$", target: 0.02, op: "<=", pass: true },
-  { key: "err", label: "임무 오류율", value: 1.1, unit: "%", target: 2, op: "<=", pass: true },
+  { key: "err", label: "검색 오류율", value: 1.1, unit: "%", target: 2, op: "<=", pass: true },
   { key: "task_err", label: "Task 오류율", value: 2.4, unit: "%", target: 5, op: "<=", pass: true },
   { key: "retry", label: "재시도율", value: 6.2, unit: "%", target: 10, op: "<=", pass: true },
   { key: "yt", label: "YouTube 유닛 / 요청 인원", value: 48.7, unit: "", target: 50, op: "<=", pass: true },
@@ -106,7 +106,7 @@ export const gates: GateDecision[] = [
   {
     id: "g_0927_1", at: "2026-09-27 14:20", version: VERSION, verdict: "IMPROVE", composite: 0.78, baseline: 0.83,
     reasons: ["치명 평가자 미달: attribution_precision 0.81 < 0.90", "H5 회귀 빨강 (Δ −0.05)", "primary_source_rate 0.41 < 0.60"],
-    focus_agents: ["web-researcher"], notes: ["H1 인스타 토큰 5일 남음", "H9 감독관 개입 O5 1.4회/임무"],
+    focus_agents: ["web-researcher"], notes: ["H1 인스타 토큰 5일 남음", "H9 감독관 개입 O5 1.4회/검색"],
     actions: ["최악 예제 5건을 주석 큐로 보내기", "web-researcher 프롬프트 '1차 출처를 열어라' 규칙 확인", "수정 후 agentops eval → gate"],
   },
   { id: "g_0926_1", at: "2026-09-26 18:02", version: "2d91871", verdict: "DEPLOY", composite: 0.83, baseline: 0.83, reasons: [], focus_agents: [], notes: ["H1 인스타 토큰 6일 남음"], actions: [] },
@@ -154,12 +154,12 @@ export const runs: MissionRunSummary[] = Array.from({ length: 18 }, (_, i) => {
   };
 });
 
-/** 임무 1건의 이벤트 타임라인 (추적 탭 · 개요 타임라인) */
+/** 검색 1건의 이벤트 타임라인 (추적 탭 · 개요 타임라인) */
 export const timeline: TraceEvent[] = (() => {
   const ev: TraceEvent[] = [];
   let id = 0;
   const add = (e: Omit<TraceEvent, "event_id" | "run_url">) => ev.push({ ...e, event_id: `evt_${++id}`, run_url: LS });
-  add({ ts: 0, type: "mission.started", agent: "supervisor", lane: "총괄", label: "임무 시작", status: "info" });
+  add({ ts: 0, type: "mission.started", agent: "supervisor", lane: "총괄", label: "검색 시작", status: "info" });
   add({ ts: 0.2, dur: 3.8, type: "condition.compiled", agent: "query-planner", lane: "조건 컴파일", label: "조건 7개 제안", tokens_in: 6200, tokens_out: 1900, cost_usd: 0.004, status: "ok" });
   add({ ts: 4.1, dur: 0.1, type: "condition.validated", agent: "query-planner", lane: "조건 컴파일", label: "c5 재제안 1회 · 통과", status: "ok" });
   add({ ts: 4.3, dur: 58, type: "hitl.requested", agent: "supervisor", lane: "사람 확인", label: "조건 승인 대기 58s (지연에서 제외)", status: "info" });
@@ -173,7 +173,7 @@ export const timeline: TraceEvent[] = (() => {
   add({ ts: 214, dur: 24, type: "agent.finished", agent: "web-researcher", lane: "웹 ×75", label: "재조사 6명", tokens_in: 38000, tokens_out: 2100, cost_usd: 0.009, status: "ok" });
   add({ ts: 238.5, dur: 1, type: "agent.finished", agent: "profiler", lane: "도시에", label: "34명 정리", status: "ok" });
   add({ ts: 240, type: "condition.coverage", agent: "supervisor", lane: "총괄", label: "조건 확인률 기록", status: "info" });
-  add({ ts: 240.2, type: "mission.finished", agent: "supervisor", lane: "총괄", label: "임무 종료 · $0.43", status: "ok" });
+  add({ ts: 240.2, type: "mission.finished", agent: "supervisor", lane: "총괄", label: "검색 종료 · $0.43", status: "ok" });
   return ev;
 })();
 
