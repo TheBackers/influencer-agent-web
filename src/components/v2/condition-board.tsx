@@ -40,7 +40,10 @@ export default function ConditionBoard({ plan, busy, locked, onPatch, onRevise, 
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-[12.5px] text-[var(--dim)] tabular">예상 ${e.cost_usd.toFixed(2)}, 약 {e.minutes[0]}~{e.minutes[1]}분</span>
+          <span className="text-[12.5px] text-[var(--dim)] tabular text-right" title={e.basis ? `추정 근거: ${e.basis}` : undefined}>
+            예상 ${e.cost_usd.toFixed(2)}{e.cost_high_usd && e.cost_high_usd > e.cost_usd + 0.004 ? ` (최대 $${e.cost_high_usd.toFixed(2)})` : ""}, 약 {e.minutes[0]}~{e.minutes[1]}분
+            {e.basis && <span className="block text-[11px]">{e.basis}</span>}
+          </span>
           <button type="button" onClick={onApprove} disabled={disabled} className={btn.primary}>
             {locked ? "찾는 중…" : "이 조건으로 찾기"}
           </button>

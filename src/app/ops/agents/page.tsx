@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RunGraph, secs } from "@/components/ops/live";
+import { RunGraph, secs, usd } from "@/components/ops/live";
 import { getOpsAgents } from "@/lib/api-v2";
 import type { OpsCatalog, OpsGraphNode } from "@/types/v2";
 
@@ -48,7 +48,7 @@ export default function AgentsPage() {
           <table className="w-full border-collapse text-[12.5px] tabular min-w-[900px]">
             <thead>
               <tr className="text-left text-[11.5px] text-[var(--dim)] bg-[var(--soft)]">
-                {["에이전트", "하는 일", "툴 선택", "툴", "상태", "예산 (LLM · 툴 · 시간)", "최근 실행", "성공률", "p95"].map((h) => (
+                {["에이전트", "하는 일", "툴 선택", "툴", "상태", "예산 (LLM · 툴 · 시간)", "최근 실행", "성공률", "p95", "1회 평균 비용"].map((h) => (
                   <th key={h} scope="col" className="px-3 py-1.5 font-semibold whitespace-nowrap">{h}</th>))}
               </tr>
             </thead>
@@ -73,6 +73,7 @@ export default function AgentsPage() {
                       {r?.success_rate == null ? <span className="font-normal text-[var(--dim)]">—</span> : `${Math.round(r.success_rate * 100)}%`}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{r ? secs(r.p95_ms) : "—"}{a.slo?.p95_s ? <div className="text-[11px] text-[var(--dim)]">목표 {a.slo.p95_s}초</div> : null}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{r?.avg_usd != null ? usd(r.avg_usd) : "—"}{r?.usd != null && <div className="text-[11px] text-[var(--dim)]">합계 {usd(r.usd)}</div>}</td>
                   </tr>
                 );
               })}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { OctagonAlert } from "lucide-react";
-import { SeverityChip, StatusChip, secs } from "@/components/ops/live";
+import { SeverityChip, StatusChip, secs, usd } from "@/components/ops/live";
 import { getOpsAgents, getOpsHealth, listOpsMissions } from "@/lib/api-v2";
 import type { OpsCatalog, OpsHealth, OpsMissionRow } from "@/types/v2";
 
@@ -81,7 +81,7 @@ export default function OpsOverviewPage() {
                         {r.returned ?? "—"}/{r.requested ?? "—"}명
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{secs(r.latency_ms)}</td>
-                      <td className="px-3 py-2">{r.cost_usd != null ? `$${Number(r.cost_usd).toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2">{r.cost_usd != null ? usd(r.cost_usd) : "—"}</td>
                       <td className="px-3 py-2">
                         <span className="flex flex-wrap gap-1">
                           {crit > 0 && <span className="inline-flex items-center gap-1"><SeverityChip s="critical" /><span className="tabular">{crit}</span></span>}
@@ -110,7 +110,7 @@ export default function OpsOverviewPage() {
             <table className="w-full border-collapse text-[12.5px] tabular min-w-[640px]">
               <thead>
                 <tr className="text-left text-[11.5px] text-[var(--dim)] bg-[var(--soft)]">
-                  {["에이전트", "툴은 누가 고르나", "실행", "성공률", "p95", "평균 LLM · 툴"].map((h) => <th key={h} scope="col" className="px-3 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+                  {["에이전트", "툴은 누가 고르나", "실행", "성공률", "p95", "평균 LLM · 툴", "1회 평균 비용"].map((h) => <th key={h} scope="col" className="px-3 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -128,6 +128,7 @@ export default function OpsOverviewPage() {
                       </td>
                       <td className="px-3 py-1.5">{r ? secs(r.p95_ms) : "—"}</td>
                       <td className="px-3 py-1.5 text-[var(--dim)]">{r ? `${r.avg_llm_calls} · ${r.avg_tool_calls}` : "—"}</td>
+                      <td className="px-3 py-1.5">{r?.avg_usd != null ? usd(r.avg_usd) : "—"}</td>
                     </tr>
                   );
                 })}

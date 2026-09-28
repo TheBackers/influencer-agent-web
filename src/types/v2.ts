@@ -85,6 +85,9 @@ export interface MissionEstimate {
   cost_usd: number;
   youtube_units: number;
   minutes: [number, number];
+  budget_usd?: number;
+  cost_high_usd?: number; // 발굴 후보를 끝까지 다 판정할 때 (최대)
+  basis?: string; // 추정 근거 — '최근 실제 임무 N건 실측' · '기본 단가'
 }
 
 /** CompiledPlan — 조건 승인 화면 전체 */
@@ -410,11 +413,12 @@ export interface OpsMissionRow {
 export interface OpsGraphNode { id: string; label: string; runs: number; status: TaskStatus | "waiting"; detail: string }
 export interface OpsGraphEdge { from: string; to: string; kind: "normal" | "fanout" | "loop"; label: string; count: number; taken: boolean }
 export interface OpsStep { agent: string; label: string; runs: number; ok: number; partial: number; failed: number; p95_ms: number }
-export interface OpsCell { status: TaskStatus; ms: number; runs: number; task_ids: string[]; llm_calls: number; tool_calls: number; errors: number }
+export interface OpsCell { status: TaskStatus; ms: number; runs: number; task_ids: string[]; llm_calls: number; tool_calls: number; errors: number; usd: number }
 export interface OpsCandidate {
   handle: string;
   cells: Record<string, OpsCell>;
   ms: number;
+  usd: number;
   problems: number;
   verdict?: "pass" | "fail";
   linked?: { platform: string; id: string; confidence: number };
@@ -431,11 +435,11 @@ export interface OpsProblem {
   event_ids: string[];
 }
 export interface OpsTool { tool: string; calls: number; cache_hits: number; errors: number; empty: number; avg_ms: number; p95_ms: number; providers: Record<string, number> }
-export interface OpsAgentRow { agent: string; label: string; runs: number; ok: number; partial: number; failed: number; total_ms: number; p95_ms: number; llm_calls: number; tool_calls: number; tokens_in: number }
+export interface OpsAgentRow { agent: string; label: string; runs: number; ok: number; partial: number; failed: number; total_ms: number; p95_ms: number; llm_calls: number; tool_calls: number; tokens_in: number; usd: number; usd_per_run: number }
 export interface OpsEventRow { t: number; type: string; agent: string; text: string; ms: number | null; event_id: string }
 export interface OpsTask {
   task_id: string; agent: string; candidate: string; capability?: string; status: TaskStatus; ms: number;
-  focus: string[]; llm_calls: number; tool_calls: number; tokens_in: number; errors: number; start: number;
+  focus: string[]; llm_calls: number; tool_calls: number; tokens_in: number; errors: number; start: number; usd: number;
   note?: string; events: OpsEventRow[];
 }
 export interface OpsMissionView {
@@ -444,6 +448,7 @@ export interface OpsMissionView {
     returned: number | null; passed: number | null; rejected: number | null; duration_s: number; cost_usd: number | null;
     tokens_in: number; llm_calls: number; tool_calls: number; cache_hits: number; events: number;
     interventions: number; errors: number; env: string; version: string; critical: number; warning: number;
+    mode?: string; cost_by_agent_usd?: number; verify_runs?: number; verified_candidates?: number;
   };
   graph: { nodes: OpsGraphNode[]; edges: OpsGraphEdge[] };
   steps: OpsStep[];
@@ -459,7 +464,7 @@ export interface OpsAgentSpec {
   uses_llm: boolean; tool_choice: string; budget: { llm_calls?: number | null; tool_calls?: number | null; timeout_s: number };
   slo: Record<string, number>; version: string; in_template: boolean;
   recent?: { runs: number; ok: number; partial: number; failed: number; success_rate: number | null; p95_ms: number;
-             avg_llm_calls: number; avg_tool_calls: number; missions: number } | null;
+             avg_llm_calls: number; avg_tool_calls: number; missions: number; usd?: number; avg_usd?: number } | null;
 }
 export interface OpsCatalog {
   agents: OpsAgentSpec[];

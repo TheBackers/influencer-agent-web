@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AgentBars, CandidateGrid, EventRows, ProblemList, RunGraph, StatusChip, TaskDrawer, ToolTable, secs } from "@/components/ops/live";
+import { AgentBars, CandidateGrid, EventRows, ProblemList, RunGraph, StatusChip, TaskDrawer, ToolTable, secs, usd } from "@/components/ops/live";
 import { getOpsMission, listOpsMissions } from "@/lib/api-v2";
 import type { OpsMissionRow, OpsMissionView, OpsProblem, OpsTask } from "@/types/v2";
 
@@ -90,7 +90,8 @@ function Trace() {
               <Stat k="상태"><StatusChip s={s.status === "ok" ? "ok" : s.status === "failed" ? "failed" : s.status === "running" ? "running" : "partial"} /></Stat>
               <Stat k="결과" bad={!!s.requested && (s.returned ?? 0) < s.requested}>{s.returned ?? "—"}/{s.requested ?? "—"}명 (탈락 {s.rejected ?? 0})</Stat>
               <Stat k="시간">{secs(s.duration_s * 1000)}</Stat>
-              <Stat k="비용">{s.cost_usd != null ? `$${Number(s.cost_usd).toFixed(3)}` : "—"}</Stat>
+              <Stat k="비용">{s.cost_usd != null ? usd(s.cost_usd) : "—"}{s.mode === "mock" && <span className="text-[var(--dim)]"> (모의)</span>}</Stat>
+              {s.verify_runs != null && <Stat k="조건 판정" bad={!!s.verified_candidates && s.verify_runs > s.verified_candidates * 1.5}>{s.verify_runs}회 / 후보 {s.verified_candidates ?? "—"}명</Stat>}
               <Stat k="LLM">{s.llm_calls}회 · 입력 {s.tokens_in.toLocaleString()}토큰</Stat>
               <Stat k="툴">{s.tool_calls}회 · 캐시 {s.cache_hits}</Stat>
               <Stat k="감독관 개입" bad={s.interventions > 2}>{s.interventions}</Stat>
@@ -120,15 +121,19 @@ function Trace() {
           </section>
 
           <div className="grid gap-4 lg:grid-cols-2">
+            <section className="surface px-4 py-3" aria-labelledby="cost-title">
+              <h2 id="cost-title" className="m-0 mb-2 text-[14px] font-semibold">에이전트별 실제 비용 <span className="font-normal text-[var(--dim)]">LLM 호출마다 그 모델 단가로 · 검색 API 포함</span></h2>
+              <AgentBars agents={v.agents} by="cost" />
+            </section>
             <section className="surface px-4 py-3" aria-labelledby="t-title">
               <h2 id="t-title" className="m-0 mb-2 text-[14px] font-semibold">에이전트별 걸린 시간 <span className="font-normal text-[var(--dim)]">합계 · 병렬 실행 포함</span></h2>
               <AgentBars agents={v.agents} />
             </section>
-            <section className="surface px-4 py-3" aria-labelledby="tool-title">
-              <h2 id="tool-title" className="m-0 mb-1 text-[14px] font-semibold">툴 호출</h2>
-              <ToolTable tools={v.tools} />
-            </section>
           </div>
+          <section className="surface px-4 py-3" aria-labelledby="tool-title">
+            <h2 id="tool-title" className="m-0 mb-1 text-[14px] font-semibold">툴 호출</h2>
+            <ToolTable tools={v.tools} />
+          </section>
 
           <details className="surface px-4 py-3">
             <summary className="cursor-pointer text-[14px] font-semibold">총괄 이벤트 {v.timeline.length}개 <span className="font-normal text-[var(--dim)]">(계획 · 배정 · 검토 · 조건 컴파일 — 작업 밖에서 난 것)</span></summary>

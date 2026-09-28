@@ -49,6 +49,9 @@ export function SeverityChip({ s }: { s: Severity }) {
   );
 }
 
+export const usd = (v: number | null | undefined) =>
+  v == null ? "—" : v === 0 ? "$0" : v < 0.001 ? "<$0.001" : v < 0.1 ? `$${v.toFixed(3)}` : `$${v.toFixed(2)}`;
+
 export const secs = (ms: number | null | undefined) =>
   ms == null ? "—" : ms >= 60000 ? `${Math.floor(ms / 60000)}분 ${Math.round((ms % 60000) / 1000)}초` : ms >= 1000 ? `${(ms / 1000).toFixed(1)}초` : `${Math.round(ms)}ms`;
 
@@ -199,7 +202,7 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
             {steps.map((s) => (
               <th key={s.agent} scope="col" className={`px-2 py-1.5 font-semibold whitespace-nowrap ${focus === s.agent ? "text-[var(--accent)]" : ""}`}>{s.label}</th>
             ))}
-            <th scope="col" className="px-2 py-1.5 font-semibold text-right">합계</th>
+            <th scope="col" className="px-2 py-1.5 font-semibold text-right">합계 시간 · 비용</th>
           </tr>
         </thead>
         <tbody>
@@ -224,7 +227,7 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
                 return (
                   <td key={s.agent} className={`px-1 py-1 ${focus === s.agent ? "bg-[var(--accent-bg)]" : ""}`}>
                     <button type="button" onClick={() => onPick(cell.task_ids)}
-                      title={`${s.label} · ${st.label} · ${secs(cell.ms)} · LLM ${cell.llm_calls} · 툴 ${cell.tool_calls}${cell.errors ? ` · 오류 ${cell.errors}` : ""}${cell.runs > 1 ? ` · ${cell.runs}회(재조사)` : ""}`}
+                      title={`${s.label} · ${st.label} · ${secs(cell.ms)} · ${usd(cell.usd)} · LLM ${cell.llm_calls} · 툴 ${cell.tool_calls}${cell.errors ? ` · 오류 ${cell.errors}` : ""}${cell.runs > 1 ? ` · ${cell.runs}회(재조사)` : ""}`}
                       className="w-full flex items-center gap-1 px-1.5 h-[26px] rounded text-left border border-transparent hover:border-[var(--border-strong)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                       style={{ background: cell.status === "ok" ? "transparent" : st.bg }}>
                       <st.Icon aria-hidden size={12} strokeWidth={2.2} style={{ color: st.fg }} className="shrink-0" />
@@ -236,7 +239,7 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
                   </td>
                 );
               })}
-              <td className="px-2 py-1.5 text-right text-[var(--dim)]">{secs(c.ms)}</td>
+              <td className="px-2 py-1.5 text-right text-[var(--dim)] whitespace-nowrap">{secs(c.ms)} · {usd(c.usd)}</td>
             </tr>
           ))}
         </tbody>
@@ -282,19 +285,25 @@ export function ProblemList({ problems, agentLabel, onEvents }: {
   );
 }
 
-// ── 에이전트별 시간 (한 계열 · 가로 막대) ─────────────────────────────────────
-export function AgentBars({ agents }: { agents: OpsAgentRow[] }) {
-  const max = Math.max(1, ...agents.map((a) => a.total_ms));
+// ── 에이전트별 시간 · 비용 (한 계열 · 가로 막대) ─────────────────────────────
+export function AgentBars({ agents, by = "time" }: { agents: OpsAgentRow[]; by?: "time" | "cost" }) {
+  const val = (a: OpsAgentRow) => (by === "cost" ? a.usd ?? 0 : a.total_ms);
+  const rows = [...agents].filter((a) => by === "time" ? a.total_ms > 0 : true).sort((a, b) => val(b) - val(a));
+  const max = Math.max(by === "cost" ? 1e-9 : 1, ...rows.map(val));
+  const total = rows.reduce((n, a) => n + (a.usd ?? 0), 0);
   return (
     <ul className="m-0 p-0 list-none flex flex-col gap-1.5">
-      {agents.map((a) => (
+      {rows.map((a) => (
         <li key={a.agent} className="grid grid-cols-[88px_1fr_auto] items-center gap-2 text-[12.5px]"
-          title={`${a.label}: 합계 ${secs(a.total_ms)} · ${a.runs}회 · p95 ${secs(a.p95_ms)} · LLM ${a.llm_calls} · 툴 ${a.tool_calls}${a.failed ? ` · 실패 ${a.failed}` : ""}`}>
+          title={`${a.label}: 시간 ${secs(a.total_ms)} · 비용 ${usd(a.usd)} (1회 ${usd(a.usd_per_run)}) · ${a.runs}회 · LLM ${a.llm_calls} · 입력 ${a.tokens_in.toLocaleString()}토큰${a.failed ? ` · 실패 ${a.failed}` : ""}`}>
           <span className="truncate">{a.label}</span>
           <span className="h-[10px] rounded-[3px] bg-[var(--soft)] overflow-hidden" aria-hidden>
-            <span className="block h-full rounded-[3px]" style={{ width: `${Math.max(2, (a.total_ms / max) * 100)}%`, background: a.failed ? "var(--fail)" : "var(--accent)" }} />
+            <span className="block h-full rounded-[3px]" style={{ width: `${Math.max(2, (val(a) / max) * 100)}%`, background: a.failed ? "var(--fail)" : "var(--accent)" }} />
           </span>
-          <span className="tabular text-[var(--ink-2)] whitespace-nowrap">{secs(a.total_ms)} <span className="text-[var(--dim)]">· {a.runs}회 · LLM {a.llm_calls}</span></span>
+          <span className="tabular text-[var(--ink-2)] whitespace-nowrap">
+            {by === "cost" ? <>{usd(a.usd)}{total > 0 && <span className="text-[var(--dim)]"> · {Math.round(((a.usd ?? 0) / total) * 100)}% · 1회 {usd(a.usd_per_run)}</span>}</>
+              : <>{secs(a.total_ms)} <span className="text-[var(--dim)]">· {a.runs}회 · LLM {a.llm_calls}</span></>}
+          </span>
         </li>
       ))}
     </ul>
@@ -379,7 +388,7 @@ export function TaskDrawer({ tasks, title, rows, agentLabel, onClose }: {
               {tasks.length > 1 && <h3 className="m-0 text-[13px] font-semibold">{i + 1}회차{t.focus.length ? ` · 재조사 초점 ${t.focus.join(", ")}` : ""}</h3>}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
                 <StatusChip s={t.status} />
-                <span className="tabular">{secs(t.ms)}</span>
+                <span className="tabular">{secs(t.ms)} · {usd(t.usd)}</span>
                 <span className="text-[var(--dim)]">LLM {t.llm_calls}회 · 툴 {t.tool_calls}회 · 입력 토큰 {t.tokens_in.toLocaleString()}</span>
                 {t.errors > 0 && <span className="font-semibold text-[var(--fail)]">오류 {t.errors}</span>}
               </div>
