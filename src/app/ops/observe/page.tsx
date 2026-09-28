@@ -86,7 +86,7 @@ export default function ObservePage() {
           <Card title="조건 확인률 예측" rows={[
             ["예측과 실제 일치", `${pct(st.coverage.match_rate)} (기준 ≥ ${pct(st.coverage.target)})`],
             ["잰 조건", `${st.coverage.conditions}개`],
-            ["평균 확인률", pct(st.coverage.avg_known)],
+            ["평균 결정률 (탈락자 포함)", pct(st.coverage.avg_known)],
           ]} foot={st.coverage.note} warn={st.coverage.match_rate != null && st.coverage.match_rate < st.coverage.target} />
           <Card title="비용 추정 정확도" rows={[
             ["실제 ÷ 추정", st.estimate.ratio == null ? "—" : `${st.estimate.ratio}배`],

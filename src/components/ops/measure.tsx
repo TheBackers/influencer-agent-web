@@ -46,7 +46,7 @@ const GV = {
 } as const;
 
 /** 게이트 — 13장 판정 순서(운영 진단 → 이 버전 평가 → 품질 → SLO)를 한 줄씩 */
-export function GateCard({ g, version, window: win }: { g: OpsGate; version: string; window: string }) {
+export function GateCard({ g, version, build, window: win }: { g: OpsGate; version: string; build?: string; window: string }) {
   const v = GV[g.verdict];
   return (
     <section className="rounded-lg border px-4 py-3" style={{ borderColor: v.color, background: v.bg }} aria-labelledby="gate-title">
@@ -54,7 +54,7 @@ export function GateCard({ g, version, window: win }: { g: OpsGate; version: str
         <h2 id="gate-title" className="m-0 text-[14px] font-semibold">배포 판정</h2>
         <span className="text-[15px] font-bold" style={{ color: v.color }}>{v.label}</span>
         <span className="text-[12.5px] text-[var(--ink-2)]">{g.why}</span>
-        <span className="ml-auto text-[12px] text-[var(--dim)]" translate="no">버전 {version?.slice(0, 7) || "—"} · {win}</span>
+        <span className="ml-auto text-[12px] text-[var(--dim)]" translate="no" title="지문 = 코드 · 프롬프트 · 규칙 · 모델로 계산 — 같으면 같은 동작">버전 {version || "—"}{build ? ` · 지문 ${build}` : ""} · {win}</span>
       </div>
       <ol className="m-0 mt-2 p-0 list-none grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
         {g.steps.map((s) => (

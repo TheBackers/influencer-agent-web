@@ -513,12 +513,14 @@ export interface OpsHealth { checks: HealthCheck[]; blocked: { tool: string; rea
 export type MStatus = "ok" | "warn" | "fail" | "none";
 export interface OpsSLO { key: string; label: string; value: number | null; target: number; better: "low" | "high";
   format: "ratio" | "s" | "n" | "pct"; status: MStatus; rule: string; note: string; detail: string }
-export interface OpsEvaluator { key: string; no: string; name: string; kind: "critical" | "score"; method: string; threshold: number;
-  value: number | null; status: MStatus; source: "online" | "offline" | "proxy" | "none"; basis: string; how: string }
+// kind signal = 참고(종합 점수에서 뺌) · source guard = 코드가 결과 전에 막아 결과엔 늘 0건(측정값 아님) · caught = 생성 단계에서 막은 건수
+export interface OpsEvaluator { key: string; no: string; name: string; kind: "critical" | "score" | "signal"; method: string; threshold: number;
+  value: number | null; status: MStatus; source: "online" | "offline" | "proxy" | "guard" | "none"; basis: string; how: string;
+  caught?: number | null }
 export interface OpsGate { verdict: GateVerdict; why: string; reasons: string[]; action: string;
   steps: { step: string; ok: boolean; detail: string }[]; provisional?: { quality_ok: boolean; slo_ok: boolean } }
 export interface OpsMeasure {
-  window: string; version: string; measured_at: string;
+  window: string; version: string; build?: string; measured_at: string;  // build = 동작 지문(코드 · 프롬프트 · 규칙 · 모델)
   observe: {
     searches: number; slo: OpsSLO[];
     agents: { agent: string; runs: number; p50_s: number; p95_s: number; target_s: number | null; status: MStatus }[];

@@ -16,7 +16,7 @@ export default function GatesPage() {
   if (!m) return <p className="m-0 text-[13px] text-[var(--dim)]">재는 중…</p>;
   return (
     <>
-      <GateCard g={m.gate} version={m.version} window={m.window} />
+      <GateCard g={m.gate} version={m.version} build={m.build} window={m.window} />
       <section className="surface px-4 py-3" aria-labelledby="in-title">
         <h2 id="in-title" className="m-0 mb-2 text-[14px] font-semibold">판정 재료</h2>
         <ul className="m-0 p-0 list-none grid gap-1.5 sm:grid-cols-2 text-[12.5px]">

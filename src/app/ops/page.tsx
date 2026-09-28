@@ -61,7 +61,7 @@ export default function OpsOverviewPage() {
         </section>
       ) : null}
 
-      {measure && <GateCard g={measure.gate} version={measure.version} window={measure.window} />}
+      {measure && <GateCard g={measure.gate} version={measure.version} build={measure.build} window={measure.window} />}
 
       <section className="surface px-4 py-3" aria-labelledby="tr-title">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
