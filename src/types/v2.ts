@@ -201,6 +201,10 @@ export interface ConditionCheck {
   source_url: string;
   source_title: string;
   signals_met?: string[]; // any_k 에서 충족한 신호 id
+  /** 판정 근거가 된 게시물 · 영상 주소들 (계정 · 채널 홈은 뺀다) */
+  links?: { url: string; title: string }[];
+  /** source_url 이 게시물인가(post), 계정 주소인가(profile — 팔로워 수 같은 계정 단위 조건) */
+  source_kind?: "post" | "profile" | "";
 }
 
 export interface Dossier {
@@ -252,6 +256,12 @@ export interface MissionResult {
   interventions: { rule: string; text: string; count: number }[];
   trace_url: string;
   mock: boolean;
+  /** 인원을 못 채웠을 때 — 요청 인원 · 발굴 라운드 수 · 쓴 검색어 수 · 멈춘 이유 · 빠진 이유 */
+  requested?: number;
+  rounds?: number;
+  queries?: number;
+  halt?: string;
+  shortfall?: string;
 }
 
 export type FeedbackReason = "wrong_person" | "wrong_condition" | "not_fit" | "wrong_info" | "other";

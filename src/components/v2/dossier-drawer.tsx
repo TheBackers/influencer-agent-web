@@ -130,16 +130,41 @@ function Checks({ d, conditions }: { d: Dossier; conditions: ConditionSpec[] }) 
               <span className="ml-auto"><VerdictBadge v={chk?.verdict ?? "unknown"} /></span>
             </div>
             <p className="m-0 mt-1 text-[13px] text-[var(--ink-2)]">{chk?.evidence ?? "판정 없음"}</p>
-            {chk?.source_url && (
-              <a href={chk.source_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12.5px] max-w-full">
-                <span className="truncate">{chk.source_title || "근거 보기"}</span><ExternalLink size={11} aria-hidden className="shrink-0" />
-              </a>
-            )}
+            <EvidenceLinks chk={chk} />
           </li>
         );
       })}
     </ul>
   );
+}
+
+/** 근거 — 판정에 쓴 게시물 · 영상을 하나씩. 계정 주소만 있으면 '프로필'로 따로 표시한다(게시물 근거가 아님) */
+function EvidenceLinks({ chk }: { chk?: Dossier["checks"][number] }) {
+  if (!chk) return null;
+  const posts = chk.links?.length ? chk.links
+    : chk.source_url && chk.source_kind !== "profile" ? [{ url: chk.source_url, title: chk.source_title }] : [];
+  if (posts.length) {
+    return (
+      <ul className="m-0 mt-1 p-0 list-none flex flex-col gap-0.5">
+        {posts.map((x, i) => (
+          <li key={x.url} className="min-w-0">
+            <a href={x.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12.5px] max-w-full">
+              <span className="text-[var(--dim)] shrink-0">근거 게시물 {i + 1}</span>
+              <span className="truncate">{x.title || x.url.replace(/^https?:\/\/(www\.)?/, "")}</span><ExternalLink size={11} aria-hidden className="shrink-0" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (chk.source_url) {
+    return (
+      <a href={chk.source_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-[var(--dim)] max-w-full">
+        <span className="truncate">프로필 보기 (게시물 근거 없음)</span><ExternalLink size={11} aria-hidden className="shrink-0" />
+      </a>
+    );
+  }
+  return null;
 }
 
 function PlatformTab({ p, kind }: { p: PlatformCard | null; kind: "instagram" | "youtube" }) {

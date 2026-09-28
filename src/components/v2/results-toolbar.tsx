@@ -32,6 +32,14 @@ export default function ResultsToolbar({ result, list }: { result: MissionResult
           {min}분 {Math.round(result.elapsed_s % 60)}초 걸렸고 비용은 ${result.cost.usd.toFixed(2)}입니다.
           {result.extra_passed > 0 && ` 조건을 통과한 ${result.extra_passed}명이 더 있습니다.`}
         </p>
+        {!!result.requested && result.dossiers.length < result.requested && (
+          <p className="m-0 mt-1 text-[12.5px] text-[var(--ink-2)] tabular">
+            요청 {result.requested}명 중 {result.dossiers.length}명을 찾았습니다.
+            {!!result.rounds && ` ${result.rounds}라운드 동안 검색어 ${result.queries ?? 0}개로 다시 찾았고,`}
+            {" "}{result.halt || "여기서 멈췄습니다."}
+            {result.shortfall && <span className="text-[var(--dim)]"> 빠진 이유: {result.shortfall}</span>}
+          </p>
+        )}
       </div>
       <button type="button" onClick={exportCsv} className={`${btn.secondary} ml-auto`}>
         <Download size={14} aria-hidden />CSV 내보내기
