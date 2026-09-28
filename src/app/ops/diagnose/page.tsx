@@ -5,7 +5,7 @@ import { HealthDot, tbl } from "@/components/v2/ui";
 import { getOpsHealth } from "@/lib/api-v2";
 import type { OpsHealth } from "@/types/v2";
 
-const ORDER = { red: 0, yellow: 1, green: 2 } as const;
+const ORDER = { red: 0, yellow: 1, none: 2, green: 3 } as const;
 
 /** 진단 — 키 · 연결 · 기록 무결성. 문제 있는 항목이 위로. 실제 API 를 부르지 않는 점검이다 (`python -m agentops diagnose --live` 는 PC 에서) */
 export default function DiagnosePage() {

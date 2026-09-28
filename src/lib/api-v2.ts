@@ -19,7 +19,7 @@
 import type {
   Capabilities, CompiledPlan, ConditionPatch, FeedbackReq, GateDecision, MissionEvent, MissionResult,
   OpsOverview, MissionRunSummary, TraceEvent, EvaluatorScore, AgentScore, ObserveSeries,
-  SLOItem, HealthCheck, ExperimentRow, OpsMissionRow, OpsMissionView, OpsCatalog, OpsHealth, OpsTrendRow, OpsFeedback,
+  SLOItem, HealthCheck, ExperimentRow, OpsMissionRow, OpsMissionView, OpsCatalog, OpsHealth, OpsTrendRow, OpsFeedback, OpsMeasure, GoldenConsole, GoldenItem,
 } from "@/types/v2";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
@@ -177,6 +177,32 @@ export async function getOpsTrend(limit = 30): Promise<OpsTrendRow[]> {
 export async function getOpsFeedback(limit = 200): Promise<OpsFeedback> {
   if (USE_MOCK) return (await import("@/mocks/ops-live")).opsFeedback;
   return http(`/api/ops/feedback?limit=${limit}`);
+}
+export async function getOpsMeasure(mock: "auto" | "1" | "0" = "auto"): Promise<OpsMeasure> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsMeasure;
+  return http(`/api/ops/measure?mock=${mock}`);
+}
+// 계정 연결 골든셋 — mock 에서는 메모리 안에서만 바뀐다
+export async function getGolden(): Promise<GoldenConsole> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsGolden;
+  return http("/api/ops/golden");
+}
+export async function harvestGolden(): Promise<{ added: number }> {
+  if (USE_MOCK) { await wait(300); return { added: 0 }; }
+  return http("/api/ops/golden/harvest", { method: "POST" });
+}
+export async function decideGolden(id: number, body: { status: GoldenItem["status"]; exists?: boolean | null; expect?: string; note?: string }): Promise<GoldenItem> {
+  if (USE_MOCK) {
+    const g = (await import("@/mocks/ops-live")).opsGolden;
+    const it = g.items.find((x) => x.id === id)!;
+    Object.assign(it, { status: body.status, expect_exists: body.exists ?? null, expect_id: body.expect || null });
+    return it;
+  }
+  return http(`/api/ops/golden/${id}`, { method: "POST", body: JSON.stringify(body) });
+}
+export async function addGolden(body: { from_platform: string; from_handle: string; to_platform: string; exists: boolean; expect: string; note?: string }): Promise<{ ok: boolean }> {
+  if (USE_MOCK) { await wait(200); return { ok: true }; }
+  return http("/api/ops/golden", { method: "POST", body: JSON.stringify(body) });
 }
 export async function getOpsHealth(): Promise<OpsHealth> {
   if (USE_MOCK) return (await import("@/mocks/ops-live")).opsHealth;

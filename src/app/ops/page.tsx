@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { TrendPanels } from "@/components/ops/trend";
+import { GateCard } from "@/components/ops/measure";
 import { OctagonAlert } from "lucide-react";
 import { SeverityChip, StatusChip, secs, usd } from "@/components/ops/live";
-import { getOpsAgents, getOpsHealth, getOpsTrend, listOpsMissions } from "@/lib/api-v2";
-import type { OpsCatalog, OpsHealth, OpsMissionRow, OpsTrendRow } from "@/types/v2";
+import { getOpsAgents, getOpsHealth, getOpsMeasure, getOpsTrend, listOpsMissions } from "@/lib/api-v2";
+import type { OpsCatalog, OpsHealth, OpsMeasure, OpsMissionRow, OpsTrendRow } from "@/types/v2";
 
 const MSTATUS: Record<string, string> = { ok: "ok", partial: "partial", failed: "failed", running: "running", compile: "waiting" };
 const when = (iso: string) => {
@@ -27,19 +28,21 @@ export default function OpsOverviewPage() {
   const [trend, setTrend] = useState<OpsTrendRow[] | null>(null);
   const [trendErr, setTrendErr] = useState("");
   const [withMock, setWithMock] = useState<boolean | null>(null);
+  const [measure, setMeasure] = useState<OpsMeasure | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     listOpsMissions().then(setRows).catch((e) => setErr(String(e?.message || e)));
     getOpsHealth().then(setHealth).catch(() => setHealth({ checks: [], blocked: [] }));
     getOpsAgents().then(setCat).catch(() => null);
+    getOpsMeasure().then(setMeasure).catch(() => null);
     getOpsTrend(40).then(setTrend).catch((e) => setTrendErr(String(e?.message || e)));
   }, []);
   const hasReal = !!trend?.some((r) => r.mode !== "mock");
   const showMock = withMock ?? !hasReal; // 실제 실행이 있으면 모의 실행은 기본으로 뺀다
   const trendRows = useMemo(() => (trend ?? []).filter((r) => r.status !== "running" && (showMock || r.mode !== "mock")), [trend, showMock]);
 
-  const reds = health?.checks.filter((c) => c.status === "red") ?? [];
+  const reds = health?.checks.filter((c) => c.status === "red" && ["H1", "H2", "H3", "H10"].includes(c.id)) ?? []; // 막힘(키 · 연결 · 쿼터 · 기록)만 — 품질 · SLO 빨강은 배포 판정 카드에
 
   return (
     <>
@@ -57,6 +60,8 @@ export default function OpsOverviewPage() {
           <Link href="/ops/diagnose" className="text-[12.5px]">진단 전체 보기</Link>
         </section>
       ) : null}
+
+      {measure && <GateCard g={measure.gate} version={measure.version} window={measure.window} />}
 
       <section className="surface px-4 py-3" aria-labelledby="tr-title">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">

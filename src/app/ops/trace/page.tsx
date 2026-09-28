@@ -3,8 +3,9 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AgentBars, CandidateGrid, EventRows, ProblemList, RunGraph, StatusChip, TaskDrawer, ToolTable, secs, usd } from "@/components/ops/live";
+import { ErrorGroups, RejectedList } from "@/components/ops/why";
 import { getOpsMission, listOpsMissions } from "@/lib/api-v2";
-import type { OpsMissionRow, OpsMissionView, OpsProblem, OpsTask } from "@/types/v2";
+import type { OpsErrorGroup, OpsMissionRow, OpsMissionView, OpsProblem, OpsTask } from "@/types/v2";
 
 const AGENT_KO: Record<string, string> = {
   "query-planner": "조건 설계", scout: "발굴", "web-researcher": "웹 조사", "account-linker": "계정 연결",
@@ -58,6 +59,15 @@ function Trace() {
     const rs = p.event_ids.map((id) => allEvents.get(id)).filter(Boolean) as OpsMissionView["timeline"];
     setDrawer({ rows: rs, title: p.title });
   }, [allEvents]);
+  const openErrors = useCallback((g: OpsErrorGroup) => {
+    const rs = g.event_ids.map((id) => allEvents.get(id)).filter(Boolean) as OpsMissionView["timeline"];
+    setDrawer({ rows: rs, title: `${g.title} — ${g.count}회` });
+  }, [allEvents]);
+  const openCandidate = useCallback((handle: string) => {
+    if (!v) return;
+    const ts = Object.values(v.tasks).filter((t) => t.candidate === handle);
+    if (ts.length) setDrawer({ tasks: ts });
+  }, [v]);
   const pick = (id: string) => {
     const a = NODE_AGENT[id] ?? id;
     if (a === "scout" && v) {
@@ -105,6 +115,13 @@ function Trace() {
             <ProblemList problems={v.problems} agentLabel={label} onEvents={openProblem} />
           </section>
 
+          {(v.errors?.length ?? 0) > 0 && (
+            <section className="surface px-4 py-3" aria-labelledby="err-title">
+              <h2 id="err-title" className="m-0 mb-2 text-[14px] font-semibold">오류 — 왜 났나 <span className="font-normal text-[var(--dim)]">{v.errors!.reduce((n, g) => n + g.count, 0)}회 · 원인 {v.errors!.length}가지 · 우리 쪽 문제(설정 · 코드)가 위</span></h2>
+              <ErrorGroups groups={v.errors!} agentLabel={label} onEvents={openErrors} />
+            </section>
+          )}
+
           <section className="surface px-4 py-3" aria-labelledby="g-title">
             <div className="flex flex-wrap items-baseline gap-x-3 mb-2">
               <h2 id="g-title" className="m-0 text-[14px] font-semibold">실행 그래프</h2>
@@ -119,6 +136,14 @@ function Trace() {
               <span className="text-[12.5px] text-[var(--dim)]">후보 {v.candidates.length}명 · 문제 있는 후보가 위 · 칸을 누르면 그 작업의 LLM · 툴 호출을 봅니다</span>
             </div>
             <CandidateGrid candidates={v.candidates} steps={v.steps} focus={focus} onPick={openTasks} />
+          </section>
+
+          <section className="surface px-4 py-3" aria-labelledby="rj-title">
+            <div className="flex flex-wrap items-baseline gap-x-3 mb-2">
+              <h2 id="rj-title" className="m-0 text-[14px] font-semibold">탈락한 후보 — 왜 떨어졌나</h2>
+              <span className="text-[12.5px] text-[var(--dim)]">{(v.rejected ?? []).length}명 · 선별 단계에서 떨어진 사람은 위 격자에 없고 여기에만 있습니다 · 이름을 누르면 그 후보의 조사 기록</span>
+            </div>
+            <RejectedList rows={v.rejected ?? []} onPick={openCandidate} />
           </section>
 
           <div className="grid gap-4 lg:grid-cols-2">

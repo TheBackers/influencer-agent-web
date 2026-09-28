@@ -1,129 +1,114 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendLine } from "@/components/ops/charts";
-import { getScores } from "@/lib/api-v2";
-import type { EvaluatorScore, ExperimentRow } from "@/types/v2";
+import { MChip, pct } from "@/components/ops/measure";
+import { getOpsMeasure } from "@/lib/api-v2";
+import type { OpsEvaluator, OpsMeasure } from "@/types/v2";
 
-type Data = Awaited<ReturnType<typeof getScores>>;
-const passes = (e: EvaluatorScore) => e.score >= e.threshold - 1e-9;
+const SRC: Record<OpsEvaluator["source"], string> = {
+  online: "운영 기록", offline: "오프라인 평가", proxy: "대리 지표", none: "측정 안 함",
+};
+const th = "px-3 py-1.5 font-semibold whitespace-nowrap";
+const td = "px-3 py-2 align-top";
 
-/** 평가 — 종합점수 추세 · 평가자 24개 점수표(대상별) · 실험 목록 */
+/** 품질 평가 — PRD 10장 평가 9개(치명 4 · 점수 5) + 단위 평가 2개. 운영 기록으로 재는 것 · 대리 지표 · 아직 못 재는 것을 구분한다 */
 export default function EvalPage() {
-  const [d, setD] = useState<Data | null>(null);
-  const [onlyFail, setOnlyFail] = useState(false);
-  useEffect(() => { getScores().then(setD); }, []);
-  if (!d) return <p className="text-[var(--dim)]">불러오는 중</p>;
-
-  const e2e = d.evaluators.filter((e) => e.target === "E2E");
-  const w = e2e.reduce((a, e) => a + (e.weight ?? 0), 0);
-  const comp = e2e.reduce((a, e) => a + (e.weight ?? 0) * e.score, 0) / w;
-  const base = e2e.reduce((a, e) => a + (e.weight ?? 0) * (e.baseline ?? e.score), 0) / w;
-  const critFail = d.evaluators.filter((e) => e.critical && !passes(e));
-  const badAgents = d.agents.filter((a) => a.health === "red" && a.status !== "disabled");
-  const targets = Array.from(new Set(d.evaluators.map((e) => e.target)));
-  const shown = onlyFail ? d.evaluators.filter((e) => !passes(e)) : d.evaluators;
+  const [m, setM] = useState<OpsMeasure | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { getOpsMeasure().then(setM).catch((e) => setErr(String(e?.message || e))); }, []);
+  if (err) return <p className="m-0 text-[13px] text-[var(--fail)]">불러오지 못했습니다: {err}</p>;
+  if (!m) return <p className="m-0 text-[13px] text-[var(--dim)]">재는 중…</p>;
+  const c = m.scorecard;
+  const missing = c.evaluators.filter((e) => e.source === "none" || e.source === "proxy");
 
   return (
     <>
-      <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-[1.2fr_1fr]">
-        <section className="panel" aria-labelledby="tr-title">
-          <h2 id="tr-title" className="m-0 mb-1 text-[14.5px] font-semibold">종합점수 추세 (ia-golden, 최근 14일)</h2>
-          <TrendLine points={d.trend} threshold={0.8} />
-        </section>
-        <section className="panel flex flex-col gap-2" aria-labelledby="pass-title">
-          <h2 id="pass-title" className="m-0 text-[14.5px] font-semibold">통과 조건</h2>
-          <Rule ok={comp >= 0.8} text={`종합 ${comp.toFixed(3)} ≥ 0.80`} />
-          <Rule ok={critFail.length === 0} text={`치명 평가자 전부 통과 — 미달 ${critFail.length}개${critFail.length ? ` (${critFail.map((e) => e.key).join(", ")})` : ""}`} />
-          <Rule ok={comp - base >= -0.03} text={`baseline ${base.toFixed(3)} 대비 Δ ${(comp - base).toFixed(3)} ≥ −0.03`} />
-          <Rule ok={badAgents.length === 0} text={`기준 미달 에이전트 ${badAgents.length}개${badAgents.length ? ` (${badAgents.map((a) => a.agent).join(", ")})` : ""}`} />
-          <p className="m-0 text-[12px] text-[var(--dim)]">종합 = E2E 평가자 8개의 가중 평균. baseline = 마지막 DEPLOY 버전의 같은 데이터셋 실험.</p>
-        </section>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Tile k="종합 점수 (점수 평가 평균)" v={c.composite == null ? "—" : c.composite.toFixed(2)}
+          sub={`기준 ≥ ${c.composite_target.toFixed(2)} · 5개 중 ${c.composite_measured}개로 계산`}
+          bad={c.composite != null && c.composite < c.composite_target} />
+        <Tile k="치명 평가" v={c.critical_failed.length ? `미달 ${c.critical_failed.length}` : "통과"}
+          sub={c.critical_failed.length ? `미달: ${c.critical_failed.join(" · ")}` : "잰 치명 평가는 모두 기준 충족"} bad={c.critical_failed.length > 0} />
+        <Tile k="측정 범위" v={`${c.searches}건`} sub={`${m.window} · 사람 평가 ${c.rated}건`} />
       </div>
 
-      <section className="panel !p-0 overflow-hidden" aria-labelledby="sc-title">
-        <div className="flex flex-wrap items-center gap-3 px-4 pt-3 pb-2">
-          <h2 id="sc-title" className="m-0 text-[14.5px] font-semibold">평가자 {d.evaluators.length}개</h2>
-          <label className="text-[12.5px] inline-flex items-center gap-1.5 ml-auto">
-            <input type="checkbox" checked={onlyFail} onChange={(e) => setOnlyFail(e.target.checked)} className="accent-[var(--accent)]" />
-            미달만 보기
-          </label>
+      <section className="surface" aria-labelledby="ev-title">
+        <div className="flex flex-wrap items-baseline gap-x-3 px-4 pt-3.5 pb-2">
+          <h2 id="ev-title" className="m-0 text-[14px] font-semibold">평가 9개</h2>
+          <span className="text-[12.5px] text-[var(--dim)]">치명은 하나라도 미달이면 배포 금지 · 지연 · 비용 · 오류율은 관측(SLO)에서</span>
         </div>
-        <div className="relative overflow-x-auto">
-          <table className="w-full border-collapse text-[12.5px] tabular">
-            <thead className="bg-[var(--soft)]">
-              <tr className="text-left text-[11.5px] text-[var(--dim)]">
-                {["대상", "평가자", "방식", "점수", "기준", "baseline", "Δ", "가중", "치명", "결과"].map((h) => (
-                  <th key={h} scope="col" className="px-3 py-1.5 font-semibold whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[12.5px] tabular min-w-[860px]">
+            <thead><tr className="text-left text-[11.5px] text-[var(--dim)] bg-[var(--soft)]">
+              {["평가", "종류", "방식 (PRD)", "기준", "현재", "상태", "어디서 쟀나", "근거 · 재는 법"].map((h) => <th key={h} scope="col" className={th}>{h}</th>)}
+            </tr></thead>
             <tbody>
-              {targets.flatMap((t) => shown.filter((e) => e.target === t).map((e, i) => {
-                const ok = passes(e);
-                const delta = e.baseline !== undefined ? e.score - e.baseline : 0;
-                return (
-                  <tr key={e.key} className={`border-t border-[var(--border)] ${!ok && e.critical ? "bg-[var(--fail-bg)]" : ""}`}>
-                    <td className="px-3 py-1.5 whitespace-nowrap text-[var(--dim)]">{i === 0 ? t : ""}</td>
-                    <td className="px-3 py-1.5"><span className="font-mono text-[11.5px]">{e.key}</span><div className="text-[11.5px] text-[var(--dim)]">{e.label}</div></td>
-                    <td className="px-3 py-1.5 whitespace-nowrap">{e.method}</td>
-                    <td className={`px-3 py-1.5 font-semibold ${ok ? "" : "text-[var(--fail)]"}`}>{e.score.toFixed(2)}</td>
-                    <td className="px-3 py-1.5 whitespace-nowrap">{e.op === "=" ? "=" : "≥"} {e.threshold.toFixed(2)}</td>
-                    <td className="px-3 py-1.5">{e.baseline?.toFixed(2) ?? "—"}</td>
-                    <td className={`px-3 py-1.5 ${delta < -0.03 ? "text-[var(--fail)]" : delta < 0 ? "text-[var(--unknown)]" : ""}`}>{delta >= 0 ? "+" : ""}{delta.toFixed(2)}</td>
-                    <td className="px-3 py-1.5">{e.weight?.toFixed(2) ?? "—"}</td>
-                    <td className="px-3 py-1.5">{e.critical ? "치명" : ""}</td>
-                    <td className="px-3 py-1.5 whitespace-nowrap">{ok ? <span className="text-[var(--pass)]">통과</span> : <b className="text-[var(--fail)]">미달</b>}</td>
-                  </tr>
-                );
-              }))}
+              {c.evaluators.map((e) => (
+                <tr key={e.key} className="border-t border-[var(--border)]">
+                  <td className={`${td} font-medium whitespace-nowrap`}>{e.no} {e.name}</td>
+                  <td className={td}>{e.kind === "critical" ? <span className="text-[var(--fail)] font-medium">치명</span> : "점수"}</td>
+                  <td className={`${td} text-[var(--dim)] whitespace-nowrap`}>{e.method}</td>
+                  <td className={`${td} whitespace-nowrap text-[var(--dim)]`}>{e.kind === "critical" && e.threshold === 1 ? "= 1.00" : `≥ ${e.threshold.toFixed(2)}`}</td>
+                  <td className={`${td} font-semibold`}>{e.value == null ? "—" : e.value.toFixed(2)}</td>
+                  <td className={td}><MChip s={e.status} /></td>
+                  <td className={`${td} whitespace-nowrap ${e.source === "none" ? "text-[var(--dim)]" : e.source === "proxy" ? "text-[var(--unknown)]" : ""}`}>{SRC[e.source]}</td>
+                  <td className={`${td} text-[12px] max-w-[360px]`}>
+                    {e.basis && <div>{e.basis}</div>}
+                    {e.how && <div className="text-[var(--dim)]">{e.how}</div>}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </section>
 
-      <section className="panel !p-0 overflow-hidden" aria-labelledby="ex-title">
-        <h2 id="ex-title" className="m-0 px-4 pt-3 pb-2 text-[14.5px] font-semibold">실험 (LangSmith Experiments)</h2>
-        <ExperimentTable rows={d.experiments} />
+      <section className="surface" aria-labelledby="unit-title">
+        <h2 id="unit-title" className="m-0 px-4 pt-3.5 pb-2 text-[14px] font-semibold">단위 평가 <span className="font-normal text-[12.5px] text-[var(--dim)]">프롬프트 · 모델을 바꿀 때마다 · 게이트 전</span></h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[12.5px] tabular min-w-[640px]">
+            <thead><tr className="text-left text-[11.5px] text-[var(--dim)] bg-[var(--soft)]">
+              {["평가", "기준", "마지막 점수", "상태", "언제 · 버전", "실행"].map((h) => <th key={h} scope="col" className={th}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {c.unit.map((u) => (
+                <tr key={u.suite + u.evaluator} className="border-t border-[var(--border)]">
+                  <td className={`${td} font-medium`}>{u.label}</td>
+                  <td className={`${td} text-[var(--dim)]`}>≥ {pct(u.threshold)}</td>
+                  <td className={`${td} font-semibold`}>{pct(u.value)}</td>
+                  <td className={td}><MChip s={u.status} label={u.status === "none" ? "실행 안 함" : undefined} /></td>
+                  <td className={`${td} text-[var(--dim)]`} translate="no">{u.at ? `${u.at} · ${u.version}` : "—"}</td>
+                  <td className={`${td} text-[12px]`}><code translate="no">{u.how || "—"}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="m-0 px-4 py-2.5 text-[12px] text-[var(--dim)] border-t border-[var(--border)]">
+          단위 평가는 PC 에서 돌리면 점수가 Ops 저장소에 남아 여기에 나옵니다 (예전엔 PC 의 파일에만 남았습니다).
+        </p>
       </section>
+
+      {missing.length > 0 && (
+        <section className="surface px-4 py-3" aria-labelledby="miss-title">
+          <h2 id="miss-title" className="m-0 mb-1.5 text-[14px] font-semibold">아직 제대로 못 재는 것 {missing.length}개</h2>
+          <ul className="m-0 pl-5 space-y-1 text-[12.5px]">
+            {missing.map((e) => (
+              <li key={e.key}><b>{e.no} {e.name}</b> — {e.source === "proxy" ? "지금은 대리 지표로 봅니다. " : ""}{e.how}</li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }
 
-function Rule({ ok, text }: { ok: boolean; text: string }) {
+function Tile({ k, v, sub, bad }: { k: string; v: string; sub: string; bad?: boolean }) {
   return (
-    <p className="m-0 text-[13px] flex items-start gap-2">
-      <span className={`font-bold w-[36px] shrink-0 ${ok ? "text-[var(--pass)]" : "text-[var(--fail)]"}`}>{ok ? "통과" : "미달"}</span>
-      <span className="tabular">{text}</span>
-    </p>
-  );
-}
-
-function ExperimentTable({ rows }: { rows: ExperimentRow[] }) {
-  return (
-    <div className="relative overflow-x-auto">
-      <table className="w-full border-collapse text-[12.5px] tabular">
-        <thead className="bg-[var(--soft)]">
-          <tr className="text-left text-[11.5px] text-[var(--dim)]">
-            {["시각", "버전", "데이터셋", "종합", "치명 미달", "비용", ""].map((h, i) => (
-              <th key={i} scope="col" className="px-3 py-1.5 font-semibold">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-[var(--border)]">
-              <td className="px-3 py-1.5">{r.at}</td>
-              <td className="px-3 py-1.5">{r.version}</td>
-              <td className="px-3 py-1.5">{r.dataset}</td>
-              <td className={`px-3 py-1.5 font-semibold ${r.composite < 0.8 ? "text-[var(--fail)]" : ""}`}>{r.composite.toFixed(2)}</td>
-              <td className="px-3 py-1.5">{r.critical_failed}</td>
-              <td className="px-3 py-1.5">${r.cost_usd.toFixed(2)}</td>
-              <td className="px-3 py-1.5"><a href={r.url} target="_blank" rel="noopener noreferrer">비교 뷰</a></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="surface px-4 py-3">
+      <div className="text-[12px] text-[var(--dim)]">{k}</div>
+      <div className={`text-[22px] font-semibold tabular ${bad ? "text-[var(--fail)]" : ""}`}>{v}</div>
+      <div className="text-[12px] text-[var(--dim)] break-words">{sub}</div>
     </div>
   );
 }

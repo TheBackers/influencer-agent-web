@@ -50,6 +50,7 @@ const H: Record<Health, { label: string; color: string }> = {
   green: { label: "정상", color: "var(--pass)" },
   yellow: { label: "주의", color: "var(--unknown)" },
   red: { label: "위험", color: "var(--fail)" },
+  none: { label: "측정 안 함", color: "var(--border-strong)" },
 };
 
 export function HealthDot({ h, withLabel = false }: { h: Health; withLabel?: boolean }) {

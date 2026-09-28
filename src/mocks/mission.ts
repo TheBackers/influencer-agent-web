@@ -80,6 +80,13 @@ export function mockResult(plan: CompiledPlan): MissionResult {
       { stage: "판정", reason: "'뜨고 있는' 신호 2개 미만", count: 18 },
       { stage: "판정", reason: "동일인물 확신 0.8 미만", count: 7 },
     ],
+    rejected_people: [
+      { handle: "@styleby.min", name: "민", platform: "instagram", stage: "verify", stage_ko: "조건 판정", reason: "필수 조건 미충족 — 최근 3개월 협찬 사례",
+        detail: "c4: 최근 90일 게시물 24개 중 협찬 표시 0건", source_url: "" },
+      { handle: "@daily_kim", name: "", platform: "instagram", stage: "screen", stage_ko: "선별", reason: "팔로워 미달 (7,800 < 10,000)", detail: "팔로워 7,800", source_url: "" },
+      { handle: "UC_mock_look", name: "룩북채널", platform: "youtube", stage: "fact_check", stage_ko: "근거 검문", reason: "동일인물 불확실 (0.42)",
+        detail: "인스타 계정이 같은 사람인지 확인할 글을 찾지 못함", source_url: "" },
+    ],
     needs_review: [
       { handle: "@daily.lookbook_", platform: "instagram", url: "https://www.instagram.com/daily.lookbook_/", source_url: "https://example.com/blog/fashion-accounts",
         why: "소개글: 요즘 뜨는 데일리룩 계정 @daily.lookbook_ 코디가 깔끔해요", reason: "팔로워 확인 필요 (인스타 조회 불가 — 개인 계정이거나 없는 계정)" },

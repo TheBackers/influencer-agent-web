@@ -217,8 +217,12 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
                 )}
               </th>
               <td className="px-2 py-1.5">
-                {c.verdict === "pass" ? <StatusChip s="ok" small /> : c.verdict === "fail" ? (
-                  <span className="text-[11.5px] text-[var(--dim)]">탈락</span>) : <span className="text-[var(--dim)]">—</span>}
+                {c.verdict === "pass" ? <StatusChip s="ok" small /> : c.verdict === "fail" || c.verdict === "review" ? (
+                  <span className="block max-w-[220px]" title={c.reject ? `${c.reject.stage_ko} · ${c.reject.reason}${c.reject.detail ? `\n${c.reject.detail}` : ""}` : undefined}>
+                    <span className={`text-[11.5px] font-medium ${c.verdict === "review" ? "text-[var(--unknown)]" : "text-[var(--fail)]"}`}>
+                      {c.verdict === "review" ? "확인 필요" : "탈락"}</span>
+                    {c.reject && <span className="block text-[11px] text-[var(--ink-2)] leading-snug line-clamp-2">{c.reject.reason}</span>}
+                  </span>) : <span className="text-[var(--dim)]">—</span>}
                 {c.feedback && (c.feedback.score === 1
                   ? <span className="flex items-center gap-1 mt-0.5 text-[11px] text-[var(--pass)]"><ThumbsUp size={11} aria-hidden />맞음</span>
                   : <span className="flex items-center gap-1 mt-0.5 text-[11px] text-[var(--fail)] whitespace-nowrap" title={[c.feedback.reason_label, c.feedback.condition_id, c.feedback.comment].filter(Boolean).join(" · ")}>
@@ -231,7 +235,7 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
                 return (
                   <td key={s.agent} className={`px-1 py-1 ${focus === s.agent ? "bg-[var(--accent-bg)]" : ""}`}>
                     <button type="button" onClick={() => onPick(cell.task_ids)}
-                      title={`${s.label} · ${st.label} · ${secs(cell.ms)} · ${usd(cell.usd)} · LLM ${cell.llm_calls} · 툴 ${cell.tool_calls}${cell.errors ? ` · 오류 ${cell.errors}` : ""}${cell.runs > 1 ? ` · ${cell.runs}회(재조사)` : ""}`}
+                      title={`${s.label} · ${st.label} · ${secs(cell.ms)} · ${usd(cell.usd)} · LLM ${cell.llm_calls} · 툴 ${cell.tool_calls}${cell.errors ? ` · 오류 ${cell.errors}${cell.error_hint ? ` (${cell.error_hint})` : ""}` : ""}${cell.runs > 1 ? ` · ${cell.runs}회(재조사)` : ""}`}
                       className="w-full flex items-center gap-1 px-1.5 h-[26px] rounded text-left border border-transparent hover:border-[var(--border-strong)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                       style={{ background: cell.status === "ok" ? "transparent" : st.bg }}>
                       <st.Icon aria-hidden size={12} strokeWidth={2.2} style={{ color: st.fg }} className="shrink-0" />
@@ -240,6 +244,7 @@ export function CandidateGrid({ candidates, steps, focus, onPick }: {
                       {cell.runs > 1 && <span className="text-[10.5px] text-[var(--accent)] font-semibold">×{cell.runs}</span>}
                       {cell.errors > 0 && <span className="ml-auto text-[10.5px] font-semibold" style={{ color: "var(--fail)" }}>오류 {cell.errors}</span>}
                     </button>
+                    {cell.error_hint && <span className="block px-1.5 text-[10.5px] leading-tight text-[var(--fail)] truncate max-w-[150px]" title={cell.error_hint}>{cell.error_hint}</span>}
                   </td>
                 );
               })}

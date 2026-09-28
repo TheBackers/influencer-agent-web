@@ -196,6 +196,30 @@ export default function SearchPage() {
             <ul className="mt-1.5 mb-0 pl-5 text-[var(--ink-2)] tabular">
               {result.rejected.map((r, i) => <li key={i}>{r.reason}: {r.count}명</li>)}
             </ul>
+            {!!result.rejected_people?.length && (
+              <div className="mt-2 relative overflow-x-auto">
+                <table className="w-full border-collapse text-[12.5px] min-w-[640px]">
+                  <thead>
+                    <tr className="text-left text-[11.5px] text-[var(--dim)] bg-[var(--soft)]">
+                      {["후보", "어디서", "왜 떨어졌나", "근거"].map((h) => <th key={h} scope="col" className="px-2.5 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rejected_people.map((r) => (
+                      <tr key={r.handle + r.stage} className="border-t border-[var(--border)] align-top">
+                        <td className="px-2.5 py-1.5 whitespace-nowrap font-medium" translate="no">{r.handle}</td>
+                        <td className="px-2.5 py-1.5 whitespace-nowrap text-[var(--dim)]">{r.stage_ko}</td>
+                        <td className="px-2.5 py-1.5">{r.reason}</td>
+                        <td className="px-2.5 py-1.5 text-[var(--ink-2)]">
+                          {r.detail || "—"}
+                          {r.source_url && <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-[11.5px]">근거 보기</a>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </details>
         </div>
       )}

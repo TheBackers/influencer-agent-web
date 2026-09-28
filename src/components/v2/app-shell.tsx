@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Activity, ListTree, Network, Stethoscope, ThumbsUp } from "lucide-react";
+import { Search, Activity, ListTree, Network, Stethoscope, ThumbsUp, Gauge, ClipboardCheck, BadgeCheck } from "lucide-react";
 import { USE_MOCK } from "@/lib/api-v2";
 
 const NAV = [
@@ -10,7 +10,10 @@ const NAV = [
   { group: "AgentOps" },
   { href: "/ops", label: "개요", icon: Activity, exact: true },
   { href: "/ops/trace", label: "검색 추적", icon: ListTree },
+  { href: "/ops/observe", label: "관측 (SLO)", icon: Gauge },
+  { href: "/ops/eval", label: "품질 평가", icon: ClipboardCheck },
   { href: "/ops/feedback", label: "사람 평가", icon: ThumbsUp },
+  { href: "/ops/golden", label: "골든셋", icon: BadgeCheck },
   { href: "/ops/agents", label: "에이전트", icon: Network },
   { href: "/ops/diagnose", label: "진단", icon: Stethoscope },
 ] as const;

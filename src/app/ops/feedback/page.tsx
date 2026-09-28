@@ -44,6 +44,10 @@ export default function FeedbackPage() {
             <Tile k="안 맞음" v={`${s.down}`} bad={s.down > 0} />
           </dl>
           <p className="m-0 mt-3 text-[12px] text-[var(--dim)]">검색 결과의 인물 상세 아래 &lsquo;캠페인에 맞나요?&rsquo;에서 모입니다. 같은 후보를 다시 누르면 마지막 평가만 셉니다.</p>
+          <p className="m-0 mt-2 text-[12px] text-[var(--dim)]">
+            쓰이는 곳: 품질 평가 ⑧ 👍 비율 · ④⑨ 대리 지표 · 검색 추이 · 검색 추적의 문제 카드.
+            &lsquo;다른 사람 · 계정 오인&rsquo;은 <a href="/ops/golden">골든셋</a> 확인 대기의 맨 위로 올라가 정답 데이터가 됩니다.
+          </p>
         </section>
 
         <section className="surface px-4 py-3" aria-labelledby="r-title">

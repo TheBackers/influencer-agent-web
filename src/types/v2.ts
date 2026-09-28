@@ -243,6 +243,8 @@ export interface MissionResult {
   rejected: { stage: string; reason: string; count: number }[];
   /** 인스타 조회가 안 돼 팔로워를 못 본 계정 — 탈락이 아니라 사람이 직접 확인할 것 */
   needs_review?: { handle: string; platform: string; url: string; source_url: string; why: string; reason: string }[];
+  /** 한 사람씩 왜 떨어졌나 */
+  rejected_people?: { handle: string; name: string; platform: string; stage: string; stage_ko: string; reason: string; detail: string; source_url: string }[];
   cost: { usd: number; llm_calls: number; youtube_units: number; searches: number };
   elapsed_s: number;
   interventions: { rule: string; text: string; count: number }[];
@@ -263,7 +265,7 @@ export interface FeedbackReq {
 
 // ── AgentOps (agentops/) ─────────────────────────────────────────────────────
 export type GateVerdict = "DEPLOY" | "DEBUG" | "IMPROVE";
-export type Health = "green" | "yellow" | "red";
+export type Health = "green" | "yellow" | "red" | "none"; // none = 아직 잴 수 없음 (방법은 action 에)
 
 export interface EvaluatorScore {
   key: string;
@@ -300,6 +302,7 @@ export interface HealthCheck {
   cause_agent?: string;
   traces?: string[];
   action?: string;
+  items?: { name: string; status: string; value: string }[];
 }
 
 export interface SLOItem {
@@ -418,14 +421,15 @@ export interface OpsMissionRow {
 export interface OpsGraphNode { id: string; label: string; runs: number; status: TaskStatus | "waiting"; detail: string }
 export interface OpsGraphEdge { from: string; to: string; kind: "normal" | "fanout" | "loop"; label: string; count: number; taken: boolean }
 export interface OpsStep { agent: string; label: string; runs: number; ok: number; partial: number; failed: number; p95_ms: number }
-export interface OpsCell { status: TaskStatus; ms: number; runs: number; task_ids: string[]; llm_calls: number; tool_calls: number; errors: number; usd: number }
+export interface OpsCell { status: TaskStatus; ms: number; runs: number; task_ids: string[]; llm_calls: number; tool_calls: number; errors: number; usd: number; error_hint?: string }
 export interface OpsCandidate {
   handle: string;
   cells: Record<string, OpsCell>;
   ms: number;
   usd: number;
   problems: number;
-  verdict?: "pass" | "fail";
+  verdict?: "pass" | "fail" | "review";
+  reject?: { stage_ko: string; reason: string; detail: string };
   feedback?: { score: 0 | 1; reason: string; reason_label: string; condition_id: string; comment: string };
   linked?: { platform: string; id: string; confidence: number };
 }
@@ -465,7 +469,13 @@ export interface OpsMissionView {
   agents: OpsAgentRow[];
   tasks: Record<string, OpsTask>;
   timeline: OpsEventRow[];
+  rejected?: OpsRejected[];
+  errors?: OpsErrorGroup[];
 }
+export interface OpsRejected { handle: string; name: string; platform: string; stage: string; stage_ko: string; reason: string;
+  detail: string; source_url: string; review: boolean }
+export interface OpsErrorGroup { key: string; title: string; why: string; fix: string; kind: string; tool: string; agent: string;
+  count: number; candidates: string[]; samples: string[]; event_ids: string[]; task_ids: string[]; first_t: number }
 export interface OpsAgentSpec {
   name: string; label: string; description: string; capabilities: string[]; status: string; tools: string[];
   uses_llm: boolean; tool_choice: string; budget: { llm_calls?: number | null; tool_calls?: number | null; timeout_s: number };
@@ -498,3 +508,52 @@ export interface OpsCatalog {
   recent_missions: number;
 }
 export interface OpsHealth { checks: HealthCheck[]; blocked: { tool: string; reason: string; impact: string }[] }
+
+// ── AgentOps 측정 (/api/ops/measure — PRD 10~13장) ───────────────────────────
+export type MStatus = "ok" | "warn" | "fail" | "none";
+export interface OpsSLO { key: string; label: string; value: number | null; target: number; better: "low" | "high";
+  format: "ratio" | "s" | "n" | "pct"; status: MStatus; rule: string; note: string; detail: string }
+export interface OpsEvaluator { key: string; no: string; name: string; kind: "critical" | "score"; method: string; threshold: number;
+  value: number | null; status: MStatus; source: "online" | "offline" | "proxy" | "none"; basis: string; how: string }
+export interface OpsGate { verdict: GateVerdict; why: string; reasons: string[]; action: string;
+  steps: { step: string; ok: boolean; detail: string }[]; provisional?: { quality_ok: boolean; slo_ok: boolean } }
+export interface OpsMeasure {
+  window: string; version: string; measured_at: string;
+  observe: {
+    searches: number; slo: OpsSLO[];
+    agents: { agent: string; runs: number; p50_s: number; p95_s: number; target_s: number | null; status: MStatus }[];
+    models: { model: string; calls: number; tokens_in: number; tokens_out: number; usd: number }[];
+    providers: { provider: string; calls: number }[];
+    stages: {
+      discover: { rounds_avg: number | null; discovered: number; screened: number; screen_rate: number | null; dropped: number;
+                  dropped_why: Record<string, number>; empty_searches: number; ig_unreadable_rate: number | null; fill_rate: number | null };
+      link: { linked: number; low: number; low_rate: number | null; avg_conf: number | null; rejected: number };
+      coverage: { conditions: number; match_rate: number | null; target: number; avg_known: number | null; note: string };
+      estimate: { searches: number; ratio: number | null; within_high_rate: number | null; note: string };
+    };
+  };
+  scorecard: { searches: number; rated: number; evaluators: OpsEvaluator[]; composite: number | null; composite_measured: number;
+    composite_target: number; pass: boolean; critical_failed: string[];
+    unit: { suite: string; evaluator: string; label: string; threshold: number; value: number | null; at: string; version: string; status: MStatus; how: string }[] };
+  checks: HealthCheck[];
+  gate: OpsGate;
+}
+
+// ── 계정 연결 골든셋 (/api/ops/golden) ───────────────────────────────────────
+export type LinkPlatform = "youtube" | "instagram";
+export interface GoldenItem {
+  id: number; created_at?: string; updated_at?: string; from_platform: LinkPlatform; from_handle: string; to_platform: LinkPlatform;
+  name?: string | null; status: "pending" | "confirmed" | "skipped"; expect_exists?: boolean | null; expect_id?: string | null;
+  source: "run" | "feedback" | "manual"; priority: number; got_id?: string | null; got_confidence?: number | null; got_how?: string | null;
+  mission_id?: string | null; evidence_url?: string | null; note?: string | null;
+}
+export interface GoldenSummary { observations: number; precision: number | null; recall: number | null; wrong_link: number; missed: number; none_accuracy: number | null }
+export interface GoldenAccuracy extends GoldenSummary {
+  golden: number; golden_exists: number;
+  bands: { from: number; to: number; n: number; precision: number | null }[];
+  suggest: { cutoff: number; n: number; kept_rate: number } | null;
+  at_cutoff: { cutoff: number; n: number; precision: number | null };
+  by_version: ({ version: string } & GoldenSummary)[];
+  mistakes: { mission_id: string; from_platform: string; from_handle: string; to_platform: string; got_id: string; expect_id: string | null; confidence: number | null; how: string; verdict: string }[];
+}
+export interface GoldenConsole { items: GoldenItem[]; counts: { pending: number; confirmed: number; skipped: number }; accuracy: GoldenAccuracy; observations: number; searches: number }
