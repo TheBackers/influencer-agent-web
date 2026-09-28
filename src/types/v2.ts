@@ -183,6 +183,8 @@ export interface WebItem {
   snippet: string;
   kind: WebKind;
   date?: string;
+  /** 이 사람 이야기인가 — 본인 확인(아이디 · 채널 · 본인 주소가 적힌 글) · 이름 일치(이름만 같은 글 — 동명이인일 수 있다) */
+  about?: "본인 확인" | "이름 일치";
 }
 
 export interface PersonFact {

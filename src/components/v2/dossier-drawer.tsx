@@ -216,14 +216,25 @@ function LinkBox({ p }: { p: PlatformCard }) {
 const KIND_ORDER: WebKind[] = ["언론", "본인계정", "위키", "커뮤니티", "링크모음", "쇼핑", "기타"];
 
 function WebTab({ items }: { items: WebItem[] }) {
-  const sorted = [...items].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
+  const rank = (w: WebItem) => (w.about === "이름 일치" ? 1 : 0);
+  const sorted = [...items].sort((a, b) => rank(a) - rank(b) || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
   return (
     <div>
-      <p className="m-0 mb-2 text-[12.5px] text-[var(--dim)]">언론과 본인 계정은 근거로, 위키와 커뮤니티는 참고로만 씁니다.</p>
+      <p className="m-0 mb-2 text-[12.5px] text-[var(--dim)]">
+        아이디나 채널이 적힌 글만 &apos;본인 확인&apos;입니다. 이름만 같은 글은 동명이인일 수 있어 표시해 둡니다.
+      </p>
       <ul className="m-0 p-0 list-none divide-y divide-[var(--border)]">
         {sorted.map((w, i) => (
           <li key={i} className="py-2.5">
-            <div className="text-[12px] text-[var(--dim)]">{w.kind}{w.date ? `, ${new Intl.DateTimeFormat("ko-KR").format(new Date(w.date))}` : ""}</div>
+            <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--dim)]">
+              <span>{w.kind}{w.date ? `, ${new Intl.DateTimeFormat("ko-KR").format(new Date(w.date))}` : ""}</span>
+              {w.about === "본인 확인" && <span className="text-[var(--ink-2)]">본인 확인</span>}
+              {w.about === "이름 일치" && (
+                <span className="inline-flex h-[20px] items-center rounded px-1.5 text-[11.5px] border border-[var(--unknown)] text-[var(--unknown)]">
+                  이름만 일치 · 동명이인 주의
+                </span>
+              )}
+            </div>
             <a href={w.url} target="_blank" rel="noopener noreferrer" className="text-[13px] leading-snug">{w.title}</a>
             <div className="text-[12.5px] text-[var(--ink-2)] mt-0.5">{w.snippet}</div>
           </li>

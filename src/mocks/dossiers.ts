@@ -122,10 +122,10 @@ function build(i: number): Dossier {
   ];
 
   const web: WebItem[] = [
-    { title: `[예시] 요즘 주목받는 패션 크리에이터 10인 — ${name}`, url: `https://example.com/news/rising${i}`, snippet: "최근 3개월 사이 데일리룩 영상 조회수가 크게 늘며…", kind: "언론", date: day(20 + i) },
+    { title: `[예시] 요즘 주목받는 패션 크리에이터 10인 — ${name}`, url: `https://example.com/news/rising${i}`, snippet: "최근 3개월 사이 데일리룩 영상 조회수가 크게 늘며…", kind: "언론", date: day(20 + i), about: "본인 확인" },
     { title: `${name} 나무위키`, url: `https://example.com/wiki/${handle}`, snippet: "패션 유튜버 겸 인스타그래머. 2021년부터 활동…", kind: "위키" },
-    { title: `${name} 코디 정보 모음`, url: `https://example.com/community/${handle}`, snippet: "영상에 나온 아우터 정보 정리합니다…", kind: "커뮤니티", date: day(40 + i) },
-    { title: `${name} 링크 모음`, url: `https://example.com/links/${handle}`, snippet: "인스타 · 유튜브 · 쇼핑몰", kind: "링크모음" },
+    { title: `${name} 코디 정보 모음`, url: `https://example.com/community/${handle}`, snippet: "영상에 나온 아우터 정보 정리합니다…", kind: "커뮤니티", date: day(40 + i), about: "이름 일치" },
+    { title: `${name} 링크 모음`, url: `https://example.com/links/${handle}`, snippet: "인스타 · 유튜브 · 쇼핑몰", kind: "링크모음", about: "본인 확인" },
   ];
   if (firstSp) web.push({ title: `[예시] ${BRANDS[i % BRANDS.length]}, 패션 크리에이터와 캡슐 컬렉션`, url: `https://example.com/news/collab${i}`, snippet: "협업 컬렉션 출시 소식…", kind: "언론", date: day(60 + i) });
 
