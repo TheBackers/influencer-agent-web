@@ -103,12 +103,14 @@ export const capabilities: Capabilities = {
     {
       "type": "인물",
       "examples": [
-        "20~30대 여성",
+        "여성",
+        "20~30대",
         "현직 개발자",
-        "엄마 유튜버"
+        "엄마 유튜버",
+        "대학생"
       ],
-      "template": "evidence('본인이 20~30대 여성', [web, ig, yt])",
-      "how": "본인이 밝힌 사실 · 기사 (근거 링크 필요)"
+      "template": "infer('성별: 여성', [ig, yt, web])  /  infer('나이대: 20~30대', [ig, yt, web])",
+      "how": "속성마다 따로 추정 — 본인 지칭(언니 · 엄마 · 여자 · 남편), 이름 · 소개, 'OO년생' · 'N살', 생활 단계(대학생 · 직장인 · 신혼 · 육아), 콘텐츠 맥락. 확실한 사실만 필요하면 evidence"
     },
     {
       "type": "협업·이력",
