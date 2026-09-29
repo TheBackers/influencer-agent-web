@@ -3,7 +3,7 @@
 /*
  * 디자인 토큰 — ui-ux-pro-max "Minimalism & Swiss Style"(대시보드 · 고밀도) 기준.
  * 무채색 바탕 + 네이비 한 색. 상태색(통과/실패/확인 못 함)은 상태에만 쓴다.
- * 기존 이름(--panel, --dim, --pass …)은 /legacy 화면이 그대로 쓰므로 유지한다.
+ * 옛 이름(--panel, --dim, --pass …)도 v2 화면이 그대로 쓴다.
  */
 :root {
   --background: #f7f8fa;
@@ -70,14 +70,6 @@ body {
   button { cursor: pointer; }
   button:disabled { cursor: default; }
   select { background-color: var(--panel); color: var(--foreground); }
-}
-
-/* 기존 화면(/legacy)이 쓰는 카드 */
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
 }
 
 /* v2 표면 — 테두리 한 줄, 그림자 없음 */

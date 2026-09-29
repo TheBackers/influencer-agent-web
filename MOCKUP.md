@@ -23,7 +23,6 @@ npm run dev:mock        # 목업 데이터로 실행 → http://localhost:3000
 | `/?demo=detail` | 인물 상세 패널 (요약 · 인스타 · 유튜브 · 구글 · 조건 + 👍/👎) |
 | `/ops` | AgentOps 개요 (게이트 판정 · 모듈 타일 · 에이전트 점수표 · 타임라인) |
 | `/ops/trace` `/ops/eval` `/ops/observe` `/ops/diagnose` `/ops/gates` | 추적 · 평가 · 관측 · 진단 · 게이트 이력 |
-| `/legacy` | 기존 v1 화면 (현재 백엔드와 연결되는 화면 — 구축 전까지 유지) |
 
 ## 구축 때 재사용하는 방법
 
@@ -45,5 +44,4 @@ src/components/v2/              request-composer · condition-board · condition
 src/components/ops/             gate-card · agent-scoreboard · charts(BarList · TrendLine · MissionTimeline) · ops-nav
 src/app/page.tsx                검색 흐름
 src/app/ops/*                   Ops 콘솔 6탭
-src/app/legacy/page.tsx         기존 화면
 ```

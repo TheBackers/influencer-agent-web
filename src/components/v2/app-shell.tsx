@@ -21,8 +21,6 @@ const NAV = [
 /** 대시보드 셸 — 왼쪽 메뉴 + 본문. 좁은 화면에서는 위쪽 가로 메뉴 */
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  if (path.startsWith("/legacy")) return <>{children}</>;
-
   return (
     <div className="min-h-screen lg:flex">
       <aside className="min-w-0 lg:w-[208px] lg:shrink-0 lg:border-r border-b lg:border-b-0 border-[var(--border)] bg-[var(--panel)] lg:sticky lg:top-0 lg:h-screen flex lg:flex-col">
