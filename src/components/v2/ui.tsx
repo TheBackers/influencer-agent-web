@@ -14,7 +14,16 @@ export function compact(v: number): string {
   return nf.format(v);
 }
 
-export const pct = (v: number, digits = 0) => `${(v * 100).toFixed(digits)}%`;
+export const pct = (v: number, digits = 0) => `${((v ?? 0) * 100).toFixed(digits)}%`;
+
+const df = new Intl.DateTimeFormat("ko-KR");
+/** 날짜 글자 → '2026. 9. 3.' — 비었거나 못 읽으면 빈 글자(★ Intl.format 은 Invalid Date 에서 예외를 던져 화면 전체가 깨진다).
+ *  인스타 시각 '+0000' 꼴은 일부 브라우저(Safari)가 못 읽어 '+00:00' 으로 고친다. */
+export function fmtDate(s?: string | null): string {
+  if (!s) return "";
+  const d = new Date(String(s).replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+  return Number.isNaN(d.getTime()) ? "" : df.format(d);
+}
 
 const FEAS: Record<Feasibility, { label: string; color: string }> = {
   direct: { label: "직접 확인", color: "var(--pass)" },

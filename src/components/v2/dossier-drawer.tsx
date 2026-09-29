@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { X, ExternalLink } from "lucide-react";
 import type { ConditionSpec, Dossier, PlatformCard, WebItem, WebKind } from "@/types/v2";
-import { Avatar, VerdictBadge, compact, num, pct } from "./ui";
+import { Avatar, VerdictBadge, compact, fmtDate, num, pct } from "./ui";
 import FeedbackBar, { type FeedbackInput } from "./feedback-bar";
 
 type Tab = "summary" | "instagram" | "youtube" | "web" | "checks";
@@ -62,11 +62,14 @@ export default function DossierDrawer({ d, conditions, traceUrl, feedback, onFee
       </div>
 
       <div role="tabpanel" id="drawer-panel" aria-labelledby={`tab-${tab}`} className="flex-1 overflow-y-auto px-5 py-4 text-[13.5px]">
-        {tab === "summary" && <Summary d={d} />}
-        {tab === "checks" && <Checks d={d} conditions={conditions} />}
-        {tab === "instagram" && <PlatformTab p={d.instagram} kind="instagram" />}
-        {tab === "youtube" && <PlatformTab p={d.youtube} kind="youtube" />}
-        {tab === "web" && <WebTab items={d.web} />}
+        {/* 탭 하나가 깨져도 결과 화면 전체가 'This page couldn't load'로 넘어가지 않게 탭 안에서 막는다 */}
+        <TabBoundary key={`${d.handle}:${tab}`}>
+          {tab === "summary" && <Summary d={d} />}
+          {tab === "checks" && <Checks d={d} conditions={conditions} />}
+          {tab === "instagram" && <PlatformTab p={d.instagram} kind="instagram" />}
+          {tab === "youtube" && <PlatformTab p={d.youtube} kind="youtube" />}
+          {tab === "web" && <WebTab items={d.web ?? []} />}
+        </TabBoundary>
       </div>
 
       <footer className="border-t border-[var(--border)] px-5 py-3.5 shrink-0 space-y-2.5">
@@ -167,12 +170,31 @@ function EvidenceLinks({ chk }: { chk?: Dossier["checks"][number] }) {
   return null;
 }
 
+class TabBoundary extends Component<{ children: ReactNode }, { error: string }> {
+  state = { error: "" };
+  static getDerivedStateFromError(e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <p className="m-0 text-[var(--dim)]">
+        이 탭을 표시하지 못했습니다. 다른 탭은 그대로 볼 수 있습니다.
+        <span className="block text-[12px] mt-1">오류: {this.state.error}</span>
+      </p>
+    );
+  }
+}
+
 function PlatformTab({ p, kind }: { p: PlatformCard | null; kind: "instagram" | "youtube" }) {
   if (!p) return <p className="m-0 text-[var(--dim)]">{kind === "instagram" ? "인스타그램" : "유튜브"} 계정을 찾지 못했습니다.</p>;
   const yt = kind === "youtube";
+  const recent = p.recent ?? [];
+  // ★ 발굴한 플랫폼 카드는 link 가 빈 객체({})로 왔다 — {} 도 참이라 LinkBox 가 그려지다 깨졌다. 연결 정보가 있을 때만
+  const linked = !!p.link && typeof p.link.how_found === "string";
   return (
     <div className="flex flex-col gap-4">
-      {p.link && <LinkBox p={p} />}
+      {linked && <LinkBox p={p} />}
       <dl className="m-0 grid grid-cols-[120px_1fr] gap-y-1.5 text-[13px]">
         <dt className="text-[var(--dim)]">계정</dt>
         <dd className="m-0"><a href={p.url} target="_blank" rel="noopener noreferrer">{p.handle}</a></dd>
@@ -181,21 +203,20 @@ function PlatformTab({ p, kind }: { p: PlatformCard | null; kind: "instagram" | 
         <dd className="m-0 tabular">{p.engagement_known ? `${p.engagement_rate}%` : "개인 계정이라 읽을 수 없음"}
           {p.engagement_known && <span className="block text-[12px] text-[var(--dim)]">{p.engagement_basis}</span>}</dd>
         <dt className="text-[var(--dim)]">최근 90일 흐름</dt>
-        <dd className="m-0 tabular">{p.trend?.known ? `이전 90일의 ${p.trend.ratio.toFixed(2)}배` : "확인 못 함"}</dd>
-        {p.uploads_90d !== undefined && (<><dt className="text-[var(--dim)]">업로드</dt><dd className="m-0 tabular">최근 90일 {p.uploads_90d}건, 이전 {p.uploads_prev_90d}건</dd></>)}
+        <dd className="m-0 tabular">{p.trend?.known && typeof p.trend.ratio === "number" ? `이전 90일의 ${p.trend.ratio.toFixed(2)}배` : "확인 못 함"}</dd>
+        {p.uploads_90d != null && (<><dt className="text-[var(--dim)]">업로드</dt><dd className="m-0 tabular">최근 90일 {p.uploads_90d}건, 이전 {p.uploads_prev_90d}건</dd></>)}
         <dt className="text-[var(--dim)]">같은 사람일 확률</dt><dd className="m-0 tabular">{pct(p.identity_confidence)}</dd>
       </dl>
-      {p.recent.length > 0 && (
+      {recent.length > 0 && (
         <div>
           <h3 className="m-0 mb-1 text-[13px] font-semibold">최근 {yt ? "영상" : "게시물"}</h3>
           <ul className="m-0 p-0 list-none divide-y divide-[var(--border)]">
-            {p.recent.map((m, i) => (
+            {recent.map((m, i) => (
               <li key={i} className="py-2">
                 <a href={m.url} target="_blank" rel="noopener noreferrer" className="text-[13px] leading-snug">{m.title}</a>
                 <div className="text-[12px] text-[var(--dim)] tabular mt-0.5">
-                  {new Intl.DateTimeFormat("ko-KR").format(new Date(m.date))}
-                  {m.views !== undefined && `, 조회 ${compact(m.views)}`}
-                  {m.likes !== undefined && `, 좋아요 ${compact(m.likes)}`}
+                  {[fmtDate(m.date), m.views != null && `조회 ${compact(m.views)}`, m.likes != null && `좋아요 ${compact(m.likes)}`]
+                    .filter(Boolean).join(", ")}
                   {m.sponsored && ", 협찬 표시"}
                 </div>
               </li>
@@ -224,10 +245,10 @@ function LinkBox({ p }: { p: PlatformCard }) {
         {!l.verified && <span className="text-[var(--dim)]">API 미확인</span>}
       </div>
       <p className="m-0 text-[var(--ink-2)]">{l.how_found}</p>
-      {l.identity_evidence.length > 0 && (
+      {!!l.identity_evidence?.length && (
         <ul className="m-0 pl-4 text-[var(--ink-2)]">{l.identity_evidence.map((x, i) => <li key={i}>{x}</li>)}</ul>
       )}
-      {l.counter_evidence.length > 0 && (
+      {!!l.counter_evidence?.length && (
         <p className="m-0 text-[var(--dim)]">다른 사람일 수 있는 이유: {l.counter_evidence.join(" · ")}</p>
       )}
       {l.lookup_note && <p className="m-0 text-[var(--dim)]">{l.lookup_note}</p>}
@@ -252,7 +273,7 @@ function WebTab({ items }: { items: WebItem[] }) {
         {sorted.map((w, i) => (
           <li key={i} className="py-2.5">
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--dim)]">
-              <span>{w.kind}{w.date ? `, ${new Intl.DateTimeFormat("ko-KR").format(new Date(w.date))}` : ""}</span>
+              <span>{[w.kind, fmtDate(w.date)].filter(Boolean).join(", ")}</span>
               {w.about === "본인 확인" && <span className="text-[var(--ink-2)]">본인 확인</span>}
               {w.about === "이름 일치" && (
                 <span className="inline-flex h-[20px] items-center rounded px-1.5 text-[11.5px] border border-[var(--unknown)] text-[var(--unknown)]">

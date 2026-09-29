@@ -195,7 +195,7 @@ export async function decideGolden(id: number, body: { status: GoldenItem["statu
   if (USE_MOCK) {
     const g = (await import("@/mocks/ops-live")).opsGolden;
     const it = g.items.find((x) => x.id === id)!;
-    Object.assign(it, { status: body.status, expect_exists: body.exists ?? null, expect_id: body.expect || null });
+    Object.assign(it, { status: body.status, expect_exists: body.exists ?? null, expect_id: body.expect || null, note: body.note || null });
     return it;
   }
   return http(`/api/ops/golden/${id}`, { method: "POST", body: JSON.stringify(body) });

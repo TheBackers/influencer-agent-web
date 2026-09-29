@@ -169,6 +169,11 @@ export default function GoldenPage() {
 function Row({ it, onDecide }: { it: GoldenItem; onDecide: (b: Parameters<typeof decideGolden>[1]) => void }) {
   const [expect, setExpect] = useState("");
   const [open, setOpen] = useState(false);
+  // 증거 — 무엇을 보고 정답으로 정했나(PRD 12-3). ①② 이거나 ③을 직접 봤을 때만 '맞음' · 비슷함만이면 '모르겠음'
+  const [grade, setGrade] = useState("");
+  const [proof, setProof] = useState("");
+  const note = grade ? `증거 ${grade}${proof.trim() ? ` · ${proof.trim()}` : ""}` : proof.trim();
+  const confirm = (b: Parameters<typeof decideGolden>[1]) => onDecide({ ...b, note });
   const fromUrl = profile(it.from_platform, it.from_handle);
   const gotUrl = profile(it.to_platform, it.got_id);
   const btn = "h-[28px] px-2.5 rounded-md border text-[12.5px] whitespace-nowrap";
@@ -203,18 +208,33 @@ function Row({ it, onDecide }: { it: GoldenItem; onDecide: (b: Parameters<typeof
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {it.got_id && (
-                <button type="button" onClick={() => onDecide({ status: "confirmed", exists: true, expect: it.got_id! })}
+                <button type="button" onClick={() => confirm({ status: "confirmed", exists: true, expect: it.got_id! })}
                   className={`${btn} border-[var(--pass)] text-[var(--pass)] hover:bg-[var(--pass-bg)]`}>맞음 · 같은 사람</button>
               )}
               <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
                 className={`${btn} border-[var(--border-strong)] hover:bg-[var(--soft)]`}>{it.got_id ? "틀림 · 정답 입력" : "있음 · 정답 입력"}</button>
-              <button type="button" onClick={() => onDecide({ status: "confirmed", exists: false })}
+              <button type="button" onClick={() => confirm({ status: "confirmed", exists: false })}
                 className={`${btn} border-[var(--border-strong)] hover:bg-[var(--soft)]`}>{PK[it.to_platform]} 계정 없음</button>
               {it.status === "pending" && <button type="button" onClick={() => onDecide({ status: "skipped" })} className={`${btn} border-transparent text-[var(--dim)]`}>모르겠음</button>}
             </div>
           )}
+          {it.status !== "confirmed" && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5 text-[12px]">
+              <select aria-label="증거 종류" value={grade} onChange={(e) => setGrade(e.target.value)} name="golden-grade"
+                className="h-[28px] px-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--panel)]">
+                <option value="">증거 (선택)</option>
+                <option value="①소개란·설명란이 다른 쪽을 가리킴">① 소개란 · 설명란이 다른 쪽을 가리킴</option>
+                <option value="②한 글에 두 계정">② 한 글에 두 계정이 함께</option>
+                <option value="③직접 확인">③ 같은 사람 · 콘텐츠를 직접 확인</option>
+                <option value="없음 확인">없음 — 소개란 · 검색에 없음</option>
+              </select>
+              <input aria-label="증거 링크" value={proof} onChange={(e) => setProof(e.target.value)} name="golden-proof" autoComplete="off"
+                placeholder="증거 링크 (소개란 · 글 주소)" className="h-[28px] w-[200px] px-2 rounded-md border border-[var(--border-strong)] bg-[var(--panel)]" />
+            </div>
+          )}
+          {it.status === "confirmed" && it.note && <div className="mt-0.5 text-[11.5px] text-[var(--dim)] break-all">{it.note}</div>}
           {open && it.status !== "confirmed" && (
-            <form className="mt-1.5 flex gap-1.5" onSubmit={(e) => { e.preventDefault(); if (expect.trim()) onDecide({ status: "confirmed", exists: true, expect: expect.trim() }); }}>
+            <form className="mt-1.5 flex gap-1.5" onSubmit={(e) => { e.preventDefault(); if (expect.trim()) confirm({ status: "confirmed", exists: true, expect: expect.trim() }); }}>
               <input aria-label="정답 아이디" value={expect} onChange={(e) => setExpect(e.target.value)} autoComplete="off" name="golden-expect"
                 placeholder={it.to_platform === "instagram" ? "인스타 아이디" : "@핸들 또는 UC… 채널 ID"}
                 className="h-[28px] w-[180px] px-2 rounded-md border border-[var(--border-strong)] bg-[var(--panel)] text-[12.5px]" />
