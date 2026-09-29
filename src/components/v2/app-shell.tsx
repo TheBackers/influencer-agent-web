@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Activity, ListTree, Network, Stethoscope, ThumbsUp, Gauge, ClipboardCheck, BadgeCheck } from "lucide-react";
+import { Search, Activity, ListTree, Network, Stethoscope, ThumbsUp, Gauge, ClipboardCheck, BadgeCheck, Users, DatabaseZap } from "lucide-react";
 import { USE_MOCK } from "@/lib/api-v2";
 
 const NAV = [
   { href: "/", label: "인플루언서 검색", icon: Search, exact: true },
+  { href: "/catalog", label: "인플루언서 목록", icon: Users, exact: true },
+  { href: "/catalog/ingest", label: "적재 현황", icon: DatabaseZap },
   { group: "AgentOps" },
   { href: "/ops", label: "개요", icon: Activity, exact: true },
   { href: "/ops/trace", label: "검색 추적", icon: ListTree },

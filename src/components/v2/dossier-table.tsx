@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { Dossier } from "@/types/v2";
-import { Avatar, compact, tbl } from "./ui";
+import { Avatar, UnconfirmedBadge, compact, tbl } from "./ui";
 import DossierRow from "./dossier-card";
 
 export type SortKey = "score" | "ig" | "yt" | "trend" | "sponsored";
@@ -59,6 +59,7 @@ export default function DossierTable({ list, sort, onSort, onOpen, selected }: P
                       <span className="min-w-0">
                         <span className="block font-medium truncate">{d.name}</span>
                         <span className="block text-[12px] text-[var(--dim)] truncate">{d.handle}</span>
+                        <UnconfirmedBadge d={d} />
                       </span>
                     </button>
                   </td>

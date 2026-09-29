@@ -2,18 +2,19 @@
 
 import { Download } from "lucide-react";
 import type { Dossier, MissionResult } from "@/types/v2";
-import { btn } from "./ui";
+import { btn, unconfirmed } from "./ui";
 
 /** 결과 제목 줄 — 인원 · 걸린 시간 · 비용 · CSV 내보내기 */
 export default function ResultsToolbar({ result, list }: { result: MissionResult; list: Dossier[] }) {
   const min = Math.floor(result.elapsed_s / 60);
+  const weak = list.filter((d) => unconfirmed(d).n > 0).length;
   const exportCsv = () => {
     const rows = [
-      ["순위", "이름", "핸들", "인스타 팔로워", "인스타 참여율", "유튜브 구독자", "유튜브 참여율", "최근 90일 흐름", "협찬", "필수", "참고"],
+      ["순위", "이름", "핸들", "인스타 팔로워", "인스타 참여율", "유튜브 구독자", "유튜브 참여율", "최근 90일 흐름", "협찬", "필수", "참고", "확인 못 한 필수 조건"],
       ...list.map((d, i) => [
         i + 1, d.name, d.handle, d.instagram?.followers ?? "", d.instagram?.engagement_known ? d.instagram.engagement_rate : "",
         d.youtube?.followers ?? "", d.youtube?.engagement_rate ?? "", d.youtube?.trend?.ratio ?? "", d.sponsored_count,
-        `${d.score.must_pass}/${d.score.must_total}`, `${d.score.nice_pass}/${d.score.nice_total}`,
+        `${d.score.must_pass}/${d.score.must_total}`, `${d.score.nice_pass}/${d.score.nice_total}`, unconfirmed(d).names,
       ]),
     ];
     const csv = "﻿" + rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -32,6 +33,11 @@ export default function ResultsToolbar({ result, list }: { result: MissionResult
           {min}분 {Math.round(result.elapsed_s % 60)}초 걸렸고 비용은 ${result.cost.usd.toFixed(2)}입니다.
           {result.extra_passed > 0 && ` 조건을 통과한 ${result.extra_passed}명이 더 있습니다.`}
         </p>
+        {weak > 0 && (
+          <p className="m-0 mt-1 text-[12.5px] tabular" style={{ color: "var(--unknown)" }}>
+            필수 조건을 모두 확인한 사람 {list.length - weak}명 · 필수 조건을 확인 못 한 사람 {weak}명(요청 인원을 채우려고 함께 보여 줍니다)
+          </p>
+        )}
         {!!result.requested && result.dossiers.length < result.requested && (
           <p className="m-0 mt-1 text-[12.5px] text-[var(--ink-2)] tabular">
             요청 {result.requested}명 중 {result.dossiers.length}명을 찾았습니다.

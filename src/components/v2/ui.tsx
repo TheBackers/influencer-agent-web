@@ -4,7 +4,7 @@
  * - 배지는 상태에만. 값이나 분류에는 배지를 쓰지 않고 그냥 글자로 쓴다
  * - 숫자는 tabular-nums, 숫자 형식은 Intl
  */
-import type { Feasibility, Health, GateVerdict } from "@/types/v2";
+import type { Dossier, Feasibility, Health, GateVerdict } from "@/types/v2";
 
 const nf = new Intl.NumberFormat("ko-KR");
 export const num = (v: number | undefined) => nf.format(v ?? 0);
@@ -15,6 +15,27 @@ export function compact(v: number): string {
 }
 
 export const pct = (v: number, digits = 0) => `${((v ?? 0) * 100).toFixed(digits)}%`;
+
+/** 필수 조건 중 확인 못 한 것 — 결과에 든 사람의 필수 조건은 통과 아니면 '확인 못 함'이다(미충족은 탈락).
+ *  이름은 백엔드 weak('필수 조건 확인 못 함 — 협업하고, 단점도 말하는')에서 읽는다 */
+export function unconfirmed(d: Dossier): { n: number; names: string } {
+  const n = Math.max(0, d.score.must_total - d.score.must_pass);
+  const names = (d.weak ?? "").split("—").slice(1).join("—").trim();
+  return { n: n || (d.weak ? 1 : 0), names };
+}
+
+/** '필수 조건 확인 못 함' 표시 — 상태라서 배지(점 + 글자) */
+export function UnconfirmedBadge({ d }: { d: Dossier }) {
+  const u = unconfirmed(d);
+  if (!u.n) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium" style={{ color: "var(--unknown)" }}
+      title={u.names ? `확인 못 한 필수 조건: ${u.names}` : undefined}>
+      <span aria-hidden className="w-[7px] h-[7px] rounded-full" style={{ background: "var(--unknown)" }} />
+      필수 {u.n}개 확인 못 함
+    </span>
+  );
+}
 
 const df = new Intl.DateTimeFormat("ko-KR");
 /** 날짜 글자 → '2026. 9. 3.' — 비었거나 못 읽으면 빈 글자(★ Intl.format 은 Invalid Date 에서 예외를 던져 화면 전체가 깨진다).

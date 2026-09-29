@@ -164,6 +164,15 @@ export const mockDossiers: Dossier[] = NAMES.map((_, i) => build(i)).sort((a, b)
   return s(b) - s(a);
 });
 
+// 필수 조건을 확인 못 한 채 인원을 채운 후보 예시(백엔드 judge 'weak') — 표 · 상세의 '필수 조건 확인 못 함' 표시 확인용
+{
+  const d = mockDossiers[mockDossiers.length - 1];
+  const c5 = d.checks.find((c) => c.id === "c5");
+  if (c5) Object.assign(c5, { verdict: "unknown", evidence: "확인 못 함 — 최근 90일 영상 조회수를 읽지 못함(예시)", source_url: "", source_title: "", links: [] });
+  d.score = { ...d.score, must_pass: Math.min(d.score.must_pass, d.score.must_total - 1) };
+  d.weak = "필수 조건 확인 못 함 — 요즘 뜨고 있는";
+}
+
 function cov(id: string): [number, number, number] {
   let p = 0, f = 0, u = 0;
   for (const d of mockDossiers) {

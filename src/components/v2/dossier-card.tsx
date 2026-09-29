@@ -2,7 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 import type { Dossier } from "@/types/v2";
-import { Avatar, compact } from "./ui";
+import { Avatar, UnconfirmedBadge, compact } from "./ui";
 
 /** 좁은 화면용 결과 한 줄 (표 대신) */
 export default function DossierRow({ d, rank, onOpen }: { d: Dossier; rank: number; onOpen: () => void }) {
@@ -17,6 +17,7 @@ export default function DossierRow({ d, rank, onOpen }: { d: Dossier; rank: numb
             인스타 {d.instagram ? compact(d.instagram.followers) : "—"}, 유튜브 {d.youtube ? compact(d.youtube.followers) : "—"}
             {d.sponsored_count ? `, 협찬 ${d.sponsored_count}건` : ""}
           </span>
+          <UnconfirmedBadge d={d} />
         </span>
         <ChevronRight aria-hidden size={16} className="text-[var(--dim)]" />
       </button>

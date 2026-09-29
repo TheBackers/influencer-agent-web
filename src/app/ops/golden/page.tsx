@@ -5,21 +5,51 @@ import { ExternalLink, RefreshCw } from "lucide-react";
 import { MChip, pct } from "@/components/ops/measure";
 import { addGolden, decideGolden, getGolden, harvestGolden } from "@/lib/api-v2";
 import type { GoldenConsole, GoldenItem, LinkPlatform } from "@/types/v2";
+import GoldenConditions from "@/components/ops/golden-conditions";
+import GoldenVerdicts from "@/components/ops/golden-verdicts";
+import { Linkify, PK, Tile, profileUrl as profile, shownHandle as shown } from "@/components/ops/golden-common";
 
-const PK: Record<LinkPlatform, string> = { youtube: "유튜브", instagram: "인스타" };
-const profile = (p: LinkPlatform, h?: string | null) => {
-  if (!h) return "";
-  const x = h.replace(/^@/, "");
-  if (p === "instagram") return `https://www.instagram.com/${x}/`;
-  return x.startsWith("UC") && x.length >= 20 ? `https://www.youtube.com/channel/${x}` : `https://www.youtube.com/@${x}`;
-};
-const shown = (p: LinkPlatform, h?: string | null) => (!h ? "" : p === "youtube" && h.startsWith("UC") ? h : `@${h.replace(/^@/, "")}`);
-const SRC: Record<GoldenItem["source"], string> = { run: "실행 기록", feedback: "사람 평가 '다른 사람'", manual: "직접 입력" };
+const SRC: Record<GoldenItem["source"], string> = { run: "실행 기록", feedback: "사람 평가 '다른 사람'", manual: "직접 입력", draft: "1차 초안" };
 const th = "px-3 py-1.5 font-semibold whitespace-nowrap";
 const td = "px-3 py-2 align-top";
 
-/** 골든셋 — 다른 플랫폼 계정 연결의 정답을 사람이 확인해 모으고, 운영 기록의 연결이 맞았는지 잰다 */
+type Tab = "links" | "conditions" | "verdicts";
+const TABS: { k: Tab; label: string; what: string }[] = [
+  { k: "conditions", label: "조건", what: "요청문 → 나와야 할 조건 카드 (query-planner)" },
+  { k: "links", label: "계정 연결", what: "계정 → 다른 플랫폼 정답 계정 · 없음 (account-linker)" },
+  { k: "verdicts", label: "판정", what: "사람 × 조건 → 충족 · 미충족 · 판단 불가 (verifier)" },
+];
+
+/** 골든셋 — 사람이 확인한 정답 모음 세 가지. 미리 만들고(직접 추가 · 1차 초안) 운영하면서 키운다(후보 가져오기) */
 export default function GoldenPage() {
+  const [tab, setTab] = useState<Tab>("conditions");
+  const pick = setTab;
+  return (
+    <>
+      <section className="surface px-4 py-3">
+        <p className="m-0 text-[13px]">
+          골든셋은 <b>사람이 확인한 정답이 붙은 시험지</b>입니다. 에이전트를 고칠 때마다 같은 문제로 다시 채점해 정확도를 숫자로 보고 버전을 비교합니다.
+          처음에는 <b>미리 만들고</b>(직접 추가 · 1차 초안), 운영하면서는 틀린 사례를 <b>후보 가져오기</b>로 모아 주 1회 확정합니다.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5" role="tablist" aria-label="골든셋 종류">
+          {TABS.map((t) => (
+            <button key={t.k} type="button" role="tab" aria-selected={tab === t.k} onClick={() => pick(t.k)} title={t.what}
+              className={`h-[30px] px-3 rounded-md border text-[13px] ${tab === t.k ? "border-[var(--foreground)] font-semibold" : "border-[var(--border-strong)] text-[var(--dim)] hover:bg-[var(--soft)]"}`}>
+              {t.label}
+            </button>
+          ))}
+          <span className="self-center text-[12px] text-[var(--dim)]">{TABS.find((t) => t.k === tab)?.what}</span>
+        </div>
+      </section>
+      {tab === "links" && <LinksTab />}
+      {tab === "conditions" && <GoldenConditions />}
+      {tab === "verdicts" && <GoldenVerdicts />}
+    </>
+  );
+}
+
+/** 계정 연결 — 다른 플랫폼 계정 연결의 정답을 사람이 확인해 모으고, 운영 기록의 연결이 맞았는지 잰다 */
+function LinksTab() {
   const [d, setD] = useState<GoldenConsole | null>(null);
   const [err, setErr] = useState("");
   const [tab, setTab] = useState<GoldenItem["status"]>("pending");
@@ -193,6 +223,7 @@ function Row({ it, onDecide }: { it: GoldenItem; onDecide: (b: Parameters<typeof
               {shown(it.to_platform, it.got_id)}<ExternalLink size={11} aria-hidden /></a>
           ) : <span className="text-[var(--dim)]">못 찾음</span>}
           {it.got_how && <div className="text-[11.5px] text-[var(--ink-2)]">{it.got_how}</div>}
+          {it.hint && <div className="mt-0.5 text-[11.5px] text-[var(--ink-2)] bg-[var(--soft)] rounded px-1.5 py-0.5 break-words"><b>초안 메모</b> · <Linkify text={it.hint} /></div>}
           <div className="text-[11px] text-[var(--dim)]">
             {SRC[it.source]}{it.mission_id && <> · <a href={`/ops/trace?m=${it.mission_id}`}>검색 추적</a></>}
             {it.evidence_url && <> · <a href={it.evidence_url} target="_blank" rel="noopener noreferrer">근거 글</a></>}
@@ -280,15 +311,5 @@ function AddForm({ onAdded }: { onAdded: () => void }) {
         {msg && <span className="text-[var(--dim)]" role="status">{msg}</span>}
       </form>
     </details>
-  );
-}
-
-function Tile({ k, v, sub, bad }: { k: string; v: string; sub: string; bad?: boolean }) {
-  return (
-    <div className="surface px-4 py-3 min-w-0">
-      <div className="text-[12px] text-[var(--dim)]">{k}</div>
-      <div className={`text-[22px] font-semibold tabular ${bad ? "text-[var(--fail)]" : ""}`}>{v}</div>
-      <div className="text-[11.5px] text-[var(--dim)] break-words">{sub}</div>
-    </div>
   );
 }

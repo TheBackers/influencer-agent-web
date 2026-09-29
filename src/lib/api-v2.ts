@@ -20,6 +20,7 @@ import type {
   Capabilities, CompiledPlan, ConditionPatch, FeedbackReq, GateDecision, MissionEvent, MissionResult,
   OpsOverview, MissionRunSummary, TraceEvent, EvaluatorScore, AgentScore, ObserveSeries,
   SLOItem, HealthCheck, ExperimentRow, OpsMissionRow, OpsMissionView, OpsCatalog, OpsHealth, OpsTrendRow, OpsFeedback, OpsMeasure, GoldenConsole, GoldenItem,
+  CondConsole, CondDraft, CondItem, ExpectCard, LinkPlatform, VerdictAnswer, VerdictConsole, VerdictItem,
 } from "@/types/v2";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
@@ -49,7 +50,7 @@ function askToken(): string {
   return (t || "").trim();
 }
 
-async function http<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+export async function http<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", "X-Admin-Token": token(), ...init?.headers },
@@ -203,6 +204,54 @@ export async function decideGolden(id: number, body: { status: GoldenItem["statu
 export async function addGolden(body: { from_platform: string; from_handle: string; to_platform: string; exists: boolean; expect: string; note?: string }): Promise<{ ok: boolean }> {
   if (USE_MOCK) { await wait(200); return { ok: true }; }
   return http("/api/ops/golden", { method: "POST", body: JSON.stringify(body) });
+}
+// 조건 골든셋 — 요청문 → 기대 카드. 파일 문제(yaml)는 읽기만, 화면 문제는 확인 대기 → 확정
+export async function getGoldenConditions(): Promise<CondConsole> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsGoldenConditions;
+  return http("/api/ops/golden-conditions");
+}
+export async function harvestGoldenConditions(): Promise<{ added: number }> {
+  if (USE_MOCK) { await wait(300); return { added: 0 }; }
+  return http("/api/ops/golden-conditions/harvest", { method: "POST" });
+}
+export async function draftGoldenCondition(request: string): Promise<CondDraft> {
+  if (USE_MOCK) { await wait(400); return { expect: [{ type: "규모", min: 10000, max: 200000 }, { type: "협찬", negate: true }], count: 10, platforms: ["instagram"], notes: [] }; }
+  return http("/api/ops/golden-conditions/draft", { method: "POST", body: JSON.stringify({ request }) });
+}
+export async function decideGoldenCondition(id: number, body: { status: CondItem["status"]; expect?: ExpectCard[]; count?: number | null; platforms?: LinkPlatform[]; split?: "dev" | "holdout" | null; note?: string }): Promise<CondItem> {
+  if (USE_MOCK) {
+    const g = (await import("@/mocks/ops-live")).opsGoldenConditions;
+    const it = g.items.find((x) => x.id === id)!;
+    Object.assign(it, { ...body, split: body.split || it.split });
+    return it;
+  }
+  return http(`/api/ops/golden-conditions/${id}`, { method: "POST", body: JSON.stringify(body) });
+}
+export async function addGoldenCondition(body: { request: string; expect: ExpectCard[]; count?: number | null; platforms?: LinkPlatform[]; confirm?: boolean; note?: string }): Promise<{ ok: boolean }> {
+  if (USE_MOCK) { await wait(200); return { ok: true }; }
+  return http("/api/ops/golden-conditions", { method: "POST", body: JSON.stringify(body) });
+}
+// 판정 골든셋 — 사람 × 조건 → 충족 · 미충족 · 판단 불가 + 근거
+export async function getGoldenVerdicts(): Promise<VerdictConsole> {
+  if (USE_MOCK) return (await import("@/mocks/ops-live")).opsGoldenVerdicts;
+  return http("/api/ops/golden-verdicts");
+}
+export async function harvestGoldenVerdicts(): Promise<{ added: number }> {
+  if (USE_MOCK) { await wait(300); return { added: 0 }; }
+  return http("/api/ops/golden-verdicts/harvest", { method: "POST" });
+}
+export async function decideGoldenVerdict(id: number, body: { status: VerdictItem["status"]; expect?: VerdictAnswer; evidence?: string[]; scope?: string; note?: string }): Promise<VerdictItem> {
+  if (USE_MOCK) {
+    const g = (await import("@/mocks/ops-live")).opsGoldenVerdicts;
+    const it = g.items.find((x) => x.id === id)!;
+    Object.assign(it, { status: body.status, expect: body.expect ?? it.expect, evidence: (body.evidence || []).map((url) => ({ url })), scope: body.scope ?? it.scope });
+    return it;
+  }
+  return http(`/api/ops/golden-verdicts/${id}`, { method: "POST", body: JSON.stringify(body) });
+}
+export async function addGoldenVerdict(body: { platform: LinkPlatform; handle: string; phrase: string; criterion?: string; name?: string; expect?: VerdictAnswer | null; evidence?: string[]; scope?: string; note?: string }): Promise<{ ok: boolean }> {
+  if (USE_MOCK) { await wait(200); return { ok: true }; }
+  return http("/api/ops/golden-verdicts", { method: "POST", body: JSON.stringify(body) });
 }
 export async function getOpsHealth(): Promise<OpsHealth> {
   if (USE_MOCK) return (await import("@/mocks/ops-live")).opsHealth;

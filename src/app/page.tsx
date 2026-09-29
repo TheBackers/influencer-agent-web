@@ -11,8 +11,16 @@ import DossierTable, { type SortKey } from "@/components/v2/dossier-table";
 import DossierDrawer from "@/components/v2/dossier-drawer";
 import type { FeedbackInput } from "@/components/v2/feedback-bar";
 import { compilePlan, followMission, getMission, patchCondition, revisePlan, sendFeedback, startMission, USE_MOCK } from "@/lib/api-v2";
-import { STEP_TEMPLATE } from "@/mocks/mission";
+import { DB_STEPS, STEP_TEMPLATE } from "@/mocks/mission";
+import { unconfirmed } from "@/components/v2/ui";
+import { DbResultSummary, Shortfall, UnconfirmedNote } from "@/components/catalog/search-db";
+import { patchTopic } from "@/lib/api-catalog";
+import type { MissionResultDb } from "@/types/catalog";
 import type { CompiledPlan, ConditionPatch, Dossier, MissionResult, MissionStep } from "@/types/v2";
+
+/** 진행 단계 틀 — 목업은 v3 DB 검색 단계, 지금 실시간 검색(v2)은 기존 단계. 3단계에 DB_STEPS 하나로 합친다 */
+const STEPS0 = USE_MOCK ? DB_STEPS : STEP_TEMPLATE;
+const isUnconfirmed = (d: Dossier) => unconfirmed(d).n > 0;
 
 type Phase = "idle" | "compiling" | "review" | "running" | "done" | "error";
 type Log = { at: string; text: string; kind: "log" | "intervention" | "error" };
@@ -29,7 +37,7 @@ export default function SearchPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [plan, setPlan] = useState<CompiledPlan | null>(null);
   const [busy, setBusy] = useState("");
-  const [steps, setSteps] = useState<MissionStep[]>(STEP_TEMPLATE);
+  const [steps, setSteps] = useState<MissionStep[]>(STEPS0);
   const [logs, setLogs] = useState<Log[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<MissionResult | null>(null);
@@ -80,7 +88,7 @@ export default function SearchPage() {
   const approve = useCallback(async (p: CompiledPlan | null = plan) => {
     if (!p) return;
     setPhase("running");
-    setSteps(STEP_TEMPLATE.map((s) => ({ ...s })));
+    setSteps(STEPS0.map((s) => ({ ...s })));
     setLogs([]);
     setElapsed(0);
     const { mission_id } = await startMission(p);
@@ -125,10 +133,14 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** DB 검색 요약 — 결과에 있을 때만(목업 · 3단계). 있으면 필수 조건 확인 못 한 사람을 따로 보인다(D36) */
+  const db = (result as MissionResultDb | null)?.catalog;
   const list = useMemo(() => {
     if (!result) return [];
-    return [...result.dossiers].sort((a, b) => sorters[sort](b) - sorters[sort](a)).slice(0, result.plan.estimate.count);
-  }, [result, sort]);
+    const pool = db ? result.dossiers.filter((d) => !isUnconfirmed(d)) : result.dossiers;
+    return [...pool].sort((a, b) => sorters[sort](b) - sorters[sort](a)).slice(0, result.plan.estimate.count);
+  }, [result, sort, db]);
+  const unconfirmedList = useMemo(() => (db && result ? result.dossiers.filter(isUnconfirmed) : []), [result, db]);
 
   const giveFeedback = async (d: Dossier, f: FeedbackInput) => {
     await sendFeedback({ mission_id: missionRef.current || (result?.mission_id ?? ""), run_id: d.run_id, handle: d.handle, ...f });
@@ -171,8 +183,17 @@ export default function SearchPage() {
       {phase === "done" && result && (
         <div className="flex flex-col gap-3 pt-2">
           <ResultsToolbar result={result} list={list} />
+          {db && <DbResultSummary info={db} />}
+          {db?.shortfall && <Shortfall sf={db.shortfall} onAddKeywords={async (topic, words) => { await patchTopic(topic, { add_keywords: words }); }} />}
           <CoverageBand result={result} />
           <DossierTable list={list} sort={sort} onSort={setSort} onOpen={setOpen} selected={open?.handle} />
+          {unconfirmedList.length > 0 && (
+            <section className="flex flex-col gap-2 pt-2" aria-label="필수 조건 확인 못 함">
+              <h2 className="m-0 text-[14px] font-semibold">필수 조건 확인 못 함 {unconfirmedList.length}명</h2>
+              <UnconfirmedNote n={unconfirmedList.length} />
+              <DossierTable list={unconfirmedList} sort={sort} onSort={setSort} onOpen={setOpen} selected={open?.handle} />
+            </section>
+          )}
           {!!result.needs_review?.length && (
             <details className="text-[13px] surface px-3.5 py-2.5" open={list.length === 0}>
               <summary className="cursor-pointer">

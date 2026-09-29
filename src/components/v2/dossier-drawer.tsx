@@ -3,7 +3,7 @@
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { X, ExternalLink } from "lucide-react";
 import type { ConditionSpec, Dossier, PlatformCard, WebItem, WebKind } from "@/types/v2";
-import { Avatar, VerdictBadge, compact, fmtDate, num, pct } from "./ui";
+import { Avatar, VerdictBadge, compact, fmtDate, num, pct, unconfirmed } from "./ui";
 import FeedbackBar, { type FeedbackInput } from "./feedback-bar";
 
 type Tab = "summary" | "instagram" | "youtube" | "web" | "checks";
@@ -93,10 +93,30 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
+/** 필수 조건을 확인 못 한 채 채워 넣은 후보 — 왜 결과에 있는지 먼저 말한다 */
+function UnconfirmedNote({ d, short = false }: { d: Dossier; short?: boolean }) {
+  const u = unconfirmed(d);
+  if (!u.n) return null;
+  return (
+    <div role="note" className="rounded-md border border-[var(--border)] bg-[var(--soft)] p-3 text-[12.5px] leading-relaxed">
+      <p className="m-0 font-medium" style={{ color: "var(--unknown)" }}>
+        필수 조건 {u.n}개를 확인하지 못했습니다{u.names ? ` — ${u.names}` : ""}
+      </p>
+      {!short && (
+        <p className="m-0 mt-1 text-[var(--ink-2)]">
+          조건을 확실히 충족한 사람이 요청 인원보다 적어 함께 보여 줍니다. 미충족이 확인된 사람은 결과에 넣지 않습니다.
+          무엇을 못 봤는지는 &lsquo;조건&rsquo; 탭에서 확인하세요.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Summary({ d }: { d: Dossier }) {
   const ig = d.instagram, yt = d.youtube;
   return (
     <div className="flex flex-col gap-5">
+      <UnconfirmedNote d={d} />
       <p className="m-0 leading-relaxed text-[var(--ink-2)]">{d.summary}</p>
       <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4">
         <Stat label="인스타 팔로워" value={ig ? compact(ig.followers) : "—"} sub={ig ? (ig.engagement_known ? `참여율 ${ig.engagement_rate}%` : "지표 비공개") : "계정 없음"} />
@@ -122,6 +142,8 @@ function Summary({ d }: { d: Dossier }) {
 function Checks({ d, conditions }: { d: Dossier; conditions: ConditionSpec[] }) {
   const byId = Object.fromEntries(d.checks.map((c) => [c.id, c]));
   return (
+    <>
+    {unconfirmed(d).n > 0 && <div className="mb-3"><UnconfirmedNote d={d} short /></div>}
     <ul className="m-0 p-0 list-none divide-y divide-[var(--border)]">
       {conditions.filter((c) => !c.dropped).map((c) => {
         const chk = byId[c.id];
@@ -138,6 +160,7 @@ function Checks({ d, conditions }: { d: Dossier; conditions: ConditionSpec[] }) 
         );
       })}
     </ul>
+    </>
   );
 }
 

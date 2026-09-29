@@ -226,6 +226,8 @@ export interface Dossier {
   sponsored_count: number;
   usage: { cost_usd: number; tool_calls: number; latency_s: number };
   run_id: string;
+  /** 필수 조건을 확인하지 못한 채 채워 넣은 후보 — '필수 조건 확인 못 함 — 조건, 조건' (백엔드 judge). 확실한 사람은 빈 값 */
+  weak?: string;
 }
 
 export interface ConditionCoverage {
@@ -558,8 +560,8 @@ export type LinkPlatform = "youtube" | "instagram";
 export interface GoldenItem {
   id: number; created_at?: string; updated_at?: string; from_platform: LinkPlatform; from_handle: string; to_platform: LinkPlatform;
   name?: string | null; status: "pending" | "confirmed" | "skipped"; expect_exists?: boolean | null; expect_id?: string | null;
-  source: "run" | "feedback" | "manual"; priority: number; got_id?: string | null; got_confidence?: number | null; got_how?: string | null;
-  mission_id?: string | null; evidence_url?: string | null; note?: string | null;
+  source: "run" | "feedback" | "manual" | "draft"; priority: number; got_id?: string | null; got_confidence?: number | null; got_how?: string | null;
+  mission_id?: string | null; evidence_url?: string | null; note?: string | null; hint?: string | null;
 }
 export interface GoldenSummary { observations: number; precision: number | null; recall: number | null; wrong_link: number; missed: number; none_accuracy: number | null }
 export interface GoldenAccuracy extends GoldenSummary {
@@ -571,3 +573,42 @@ export interface GoldenAccuracy extends GoldenSummary {
   mistakes: { mission_id: string; from_platform: string; from_handle: string; to_platform: string; got_id: string; expect_id: string | null; confidence: number | null; how: string; verdict: string }[];
 }
 export interface GoldenConsole { items: GoldenItem[]; counts: { pending: number; confirmed: number; skipped: number }; accuracy: GoldenAccuracy; observations: number; searches: number }
+
+// ── 조건 골든셋 (/api/ops/golden-conditions) — 요청문 → 나와야 할 조건 카드 ──────────
+export type GoldenStatus = "pending" | "confirmed" | "skipped";
+export type GoldenSource = "run" | "feedback" | "manual" | "draft";
+/** 기대 카드 하나 — 적은 칸만 채점한다(agentops/eval/decompose.py matches) */
+export interface ExpectCard {
+  type: string; min?: number; max?: number; days?: number; metric?: string; attribute?: string; value?: string;
+  keywords?: string[]; platforms?: LinkPlatform[]; negate?: boolean; must?: boolean; rubric?: boolean;
+  method?: "metric" | "rubric" | "evidence";
+}
+export interface CondCase { id: string; request: string; count?: number; platforms?: LinkPlatform[]; expect: ExpectCard[]; split?: "dev" | "holdout" }
+export interface CondItem {
+  id: number; created_at?: string; updated_at?: string; request: string; count?: number | null; platforms: LinkPlatform[];
+  expect: ExpectCard[]; split: "dev" | "holdout"; status: GoldenStatus; source: GoldenSource; priority: number;
+  why?: string | null; hint?: string | null; mission_id?: string | null; note?: string | null;
+}
+export interface CondConsole { file_cases: CondCase[]; items: CondItem[]; counts: Record<GoldenStatus, number>; types: string[] }
+export interface CondDraft { expect: ExpectCard[]; count: number; platforms: LinkPlatform[]; notes: string[] }
+
+// ── 판정 골든셋 (/api/ops/golden-verdicts) — 사람 × 조건 → 충족 · 미충족 · 판단 불가 ──────
+export type VerdictAnswer = "pass" | "fail" | "unknown";
+export interface VerdictItem {
+  id: number; created_at?: string; updated_at?: string; platform: LinkPlatform; handle: string; name?: string | null;
+  phrase: string; cond: { intent?: string; criterion?: string; days?: number; min_hits?: number; polarity?: string; weight?: string; topic?: boolean };
+  request?: string | null; status: GoldenStatus; expect?: VerdictAnswer | null; evidence: { url: string }[]; scope?: string | null;
+  checked_at?: string | null; split: "dev" | "holdout"; source: GoldenSource; priority: number;
+  got_verdict?: string | null; got_links: { url: string }[]; got_evidence?: string | null;
+  mission_id?: string | null; why?: string | null; hint?: string | null; note?: string | null;
+}
+export interface VerdictSummary {
+  observations: number; agree: number | null; pass_precision: number | null; pass_recall: number | null;
+  wrong_pass: number; missed_pass: number; unknown_rate: number | null;
+}
+export interface VerdictAccuracy extends VerdictSummary {
+  golden: number; holdout: number; mix: Record<VerdictAnswer, number>; target_mix: Record<VerdictAnswer, number>;
+  by_version: ({ version: string } & VerdictSummary)[];
+  mistakes: { mission_id: string; platform: LinkPlatform; handle: string; name: string; phrase: string; got_verdict: string; expect: string; got_links: { url: string }[] }[];
+}
+export interface VerdictConsole { items: VerdictItem[]; counts: Record<GoldenStatus, number>; accuracy: VerdictAccuracy; observations: number; searches: number }
