@@ -9,14 +9,15 @@
  *   GET   /api/catalog/people?q&topics&platform&followers_min&followers_max&account_type&sponsor&contact&fresh_only&hidden&sort → PeoplePage
  *   GET   /api/catalog/people/{id}            → Person
  *   PATCH /api/catalog/people/{id}            → Person        (고친 칸은 잠김 · 골든셋 후보 D27 · 숨기기 D26)
- *   GET   /api/catalog/ingest                 → IngestStatus
+ *   GET   /api/catalog/ingest                 → IngestStatus  (running · manual 포함)
+ *   POST  /api/catalog/ingest/run             → { started, minutes, switch, manual }  (지금 한 번 돌리기 · 스위치가 꺼져도 시험 실행)
  *   GET   /api/catalog/topics/candidates      → TopicCandidate[]  (분야 후보 · 이미 넣은 분야는 빠짐 D39)
  *   POST  /api/catalog/topics                 → IngestStatus  (분야 추가 — 낱말은 비워도 됨 D39 · D40)
  *   PATCH /api/catalog/topics/{name}          → IngestStatus  (켜기/끄기 · 낱말 더하기 D25 · 낱말 빼기 D40)
  */
 import { http, USE_MOCK } from "@/lib/api-v2";
 import type {
-  IngestStatus, KeywordRow, NewTopic, PeoplePage, PeopleQuery, Person, PersonPatch, TopicCandidate, TopicPatch,
+  IngestManual, IngestStatus, KeywordRow, NewTopic, PeoplePage, PeopleQuery, Person, PersonPatch, TopicCandidate, TopicPatch,
 } from "@/types/catalog";
 
 type MockModule = typeof import("@/mocks/catalog");
@@ -137,9 +138,41 @@ export async function getIngest(): Promise<IngestStatus> {
   if (USE_MOCK) {
     const s = await mockDb();
     await wait(150);
+    mockTick(s.ingest);
     return structuredClone(s.ingest);
   }
   return http("/api/catalog/ingest");
+}
+
+/** 지금 한 번 돌리기 — 서버가 적재 그래프를 한 번(최대 minutes분) 돈다. 스위치가 꺼져 있어도 시험으로 돈다. 도는 중이면 409 */
+export async function runIngestNow(minutes: number): Promise<{ started: boolean; minutes: number; switch: boolean; manual: IngestManual }> {
+  if (!USE_MOCK) return http("/api/catalog/ingest/run", { method: "POST", body: JSON.stringify({ minutes }) });
+  const s = await mockDb();
+  await wait(300);
+  if (s.ingest.running) throw new Error("다른 적재 실행이 돌고 있습니다 — 끝나면 다시 누르세요");
+  mockRun = { t0: Date.now(), minutes };
+  s.ingest.running = true;
+  s.ingest.manual = { alive: true, started_at: nowIso(), minutes, finished_at: "", error: "", result: null };
+  return { started: true, minutes, switch: s.ingest.enabled, manual: structuredClone(s.ingest.manual) };
+}
+
+// 목업 실행 — 누른 뒤 약 12초 동안 단계 숫자가 늘고, 끝나면 실행 기록 한 줄이 생긴다(지어낸 숫자)
+let mockRun: { t0: number; minutes: number; done?: number } | null = null;
+function mockTick(g: IngestStatus) {
+  if (!mockRun || !g.manual) return;
+  const sec = (Date.now() - mockRun.t0) / 1000;
+  const step = Math.min(12, Math.floor(sec / 2));
+  const add = step - (mockRun.done ?? 0);
+  if (add > 0) {
+    for (const st of g.stages) if (st.key !== "store") { st.done_24h += add * (st.key === "collect" ? 3 : 1); st.waiting = Math.max(0, st.waiting - add); }
+    mockRun.done = step;
+  }
+  if (sec < 12) return;
+  const r = { status: "ok", run_id: 413, jobs_done: 36, jobs_failed: 1, people_added: 9, llm_usd: 0.004, stopped: "할 일 없음" };
+  g.runs.unshift({ id: "ing_413", started_at: g.manual.started_at, minutes: 0.2, processed: 36, added: 9, failed: 1, usd: 0.004, stopped: "할 일 없음" });
+  g.running = false;
+  g.manual = { ...g.manual, alive: false, finished_at: nowIso(), result: r };
+  mockRun = null;
 }
 
 export async function getTopicCandidates(): Promise<TopicCandidate[]> {

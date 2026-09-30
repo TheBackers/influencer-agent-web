@@ -255,6 +255,17 @@ export interface IngestRun {
   stopped: string;              // '할 일 없음' · '마감 5분 전' · '몫 소진' · '도는 중'
 }
 
+/** '지금 한 번 돌리기' — 서버 스레드에서 도는 시험 실행(스위치가 꺼져 있어도 · POST /api/catalog/ingest/run) */
+export interface IngestManual {
+  alive: boolean;               // 아직 도는 중
+  started_at: string;
+  minutes: number;              // 최대 몇 분 (1~30)
+  finished_at: string;          // "" = 아직
+  error: string;                // 실행이 예외로 끝났을 때 까닭
+  result: { status?: string; run_id?: number; jobs_done?: number; jobs_failed?: number; people_added?: number;
+            llm_usd?: number; stopped?: string; note?: string } | null;
+}
+
 export interface IngestStatus {
   enabled: boolean;             // 서버 적재 스위치(INGEST_ENABLED=1) — 꺼져 있으면 크론이 돌아도 모으지 않는다(D29)
   totals: { people: number; creators: number; new_7d: number; fresh_ratio: number; needs_review: number; hidden: number; contact_missing: number };
@@ -265,6 +276,8 @@ export interface IngestStatus {
     web_searches_today: number; web_cap: number;
   };
   next_run_at: string;          // "" = 스위치가 꺼져 있음
+  running?: boolean;            // 지금 도는 적재 실행이 있다(크론 · 버튼) — 도는 동안 버튼을 막는다
+  manual?: IngestManual | null; // 이 서버에서 '지금 한 번 돌리기'로 돌린 마지막 실행
   topics: TopicRow[];
   stages: StageRow[];
   workers: IngestWorker[];

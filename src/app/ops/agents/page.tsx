@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AgentCard, IngestMap, OrchestrationMap, SearchMap } from "@/components/ops/agent-map";
+import Link from "next/link";
+import { AgentSystemMap, MEET } from "@/components/ops/agent-flow";
+import { AgentCard, IngestMap, SearchMap } from "@/components/ops/agent-map";
 import { getOpsAgents } from "@/lib/api-v2";
 import type { OpsAgentSpec, OpsCatalog } from "@/types/v2";
 
@@ -10,14 +12,6 @@ const TABS: { k: Tab; label: string }[] = [
   { k: "structure", label: "전체 구조" },
   { k: "search", label: "검색 그래프" },
   { k: "ingest", label: "적재 그래프" },
-];
-const FLOW = [
-  ["총괄이 노드에서 할 일을 정한다", "갈림길은 코드 규칙이다 — LLM이 다음 길을 고르지 않는다(검색 9노드 · 적재 6노드)."],
-  ["배정 전에 감독관이 본다", "검색 AI 비용이 상한 $0.50의 80%면 새 배정을 멈추고(O2), 같은 배정 3번째는 거부한다(O3)."],
-  ["능력 이름으로 워커를 부른다", "레지스트리가 agent.yaml에서 맡을 워커를 고른다 — 사용 중 · 일부(20%) · 꺼짐은 건너뜀."],
-  ["작업 범위를 씌운다", "예산(LLM · 툴 호출 수, O1) · 마감(O6) · 시작/끝 기록. 툴은 게이트웨이(캐시 · 몫 · 재시도 · 막힘 O8)를, LLM은 비용 상한(O2)을 지난다."],
-  ["워커 결과를 코드가 검사한다", "지어낸 핸들(O4) · 지어낸 근거(O5) · 동일인물 확신도 0.6 미만(O9)은 버리거나 '확인 못 함'으로 돌린다."],
-  ["총괄이 결과를 받아 다음 노드로", "ok · partial · failed · blocked — 워커 하나가 실패해도 검색 · 적재는 멈추지 않는다."],
 ];
 const G_KO: Record<string, string> = { search: "검색", ingest: "적재" };
 
@@ -98,28 +92,32 @@ export default function AgentsPage() {
         <>
           <section className="surface px-4 py-3" aria-labelledby="o-title">
             <div className="flex flex-wrap items-baseline gap-x-3 mb-2">
-              <h2 id="o-title" className="m-0 text-[14px] font-semibold">총괄 · 감독관 · 워커가 어떻게 이어지나</h2>
-              <span className="text-[12.5px] text-[var(--dim)]">그래프 2개가 같은 워커 부르기 · 감독관 · 게이트웨이를 나눠 쓴다</span>
+              <h2 id="o-title" className="m-0 text-[14px] font-semibold">에이전트 {cat.agents.length}개와 적재 · 검색이 맞물리는 곳</h2>
+              <span className="text-[12.5px] text-[var(--dim)]">검은 테두리 = 총괄(순서를 정하는 코드) · 파란 칸 = 워커 에이전트(누르면 카드) · 파란 번호 = 적재와 검색이 만나는 곳</span>
             </div>
-            <OrchestrationMap cat={cat} onPick={onPick} onGraph={choose} />
+            <AgentSystemMap cat={cat} onPick={onPick} />
             <p className="m-0 mt-1 text-[11.5px] text-[var(--dim)] md:hidden">그림은 옆으로 밀어 봅니다</p>
-            <div className="mt-3 grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <div className="min-w-0">
-                <h3 className="m-0 mb-1.5 text-[13px] font-semibold">작업 하나가 지나는 길</h3>
-                <ol className="m-0 pl-5 text-[12.5px] grid gap-1">
-                  {FLOW.map(([h, d]) => <li key={h}><b className="font-semibold">{h}</b> <span className="text-[var(--ink-2)]">— {d}</span></li>)}
-                </ol>
-              </div>
-              <div className="min-w-0">
-                <h3 className="m-0 mb-1.5 text-[13px] font-semibold">새 워커 붙이기</h3>
-                <ul className="m-0 pl-4 text-[12.5px] text-[var(--ink-2)] grid gap-1">
-                  <li><span translate="no">agent/agents/&lt;이름&gt;/</span> 폴더 하나 — <span translate="no">agent.yaml</span>(능력 · 툴 · 예산 · 상태) + 코드.</li>
-                  <li>이미 있는 능력이면 총괄 코드는 그대로 — 레지스트리가 고른다(꺼짐 → 그림자 → 일부 20% → 사용 중).</li>
-                  <li>새 능력이면 그 능력을 부를 노드 한 곳에 <span translate="no">invoke(&quot;능력&quot;)</span> 한 줄과 이 화면의 노드 표(agentops/view.py)를 더한다.</li>
-                  <li>기록 · 예산 · 감독관 · 게이트웨이는 저절로 붙는다 — 검색 추적 · 관측에 바로 보인다.</li>
-                </ul>
-              </div>
-            </div>
+            <ol className="m-0 mt-3 p-0 list-none grid gap-1.5 md:grid-cols-2 text-[12.5px]">
+              {MEET.map((m) => (
+                <li key={m.n} className="flex gap-2 min-w-0">
+                  <span className="shrink-0 w-[20px] h-[20px] rounded-full grid place-items-center text-[11px] font-bold text-[var(--accent-ink)]"
+                    style={{ background: m.n === "5" ? "var(--dim)" : "var(--accent)" }}>{m.n}</span>
+                  <span className="min-w-0"><b className="font-semibold">{m.title}</b> <span className="text-[var(--ink-2)]">— {m.what}</span></span>
+                </li>
+              ))}
+            </ol>
+            <p className="m-0 mt-2 text-[12.5px] text-[var(--ink-2)]">
+              <b className="font-semibold">워커끼리는 직접 부르지 않는다</b> — 다음 일은 검색은 총괄이, 적재는 작업 표가 정한다. 총괄이 워커를 부를 때마다 레지스트리가 능력 이름으로 워커를 고르고(agent.yaml) 예산(O1) · 마감(O6)을 씌운 뒤 결과를 총괄에게 돌려준다.
+            </p>
+            <details className="mt-3 text-[12.5px]">
+              <summary className="cursor-pointer text-[var(--accent)]">새 워커 붙이기</summary>
+              <ul className="m-0 mt-1.5 pl-4 text-[var(--ink-2)] grid gap-1">
+                <li><span translate="no">agent/agents/&lt;이름&gt;/</span> 폴더 하나 — <span translate="no">agent.yaml</span>(능력 · 툴 · 예산 · 상태) + 코드.</li>
+                <li>이미 있는 능력이면 총괄 코드는 그대로 — 레지스트리가 고른다(꺼짐 → 그림자 → 일부 20% → 사용 중).</li>
+                <li>새 능력이면 그 능력을 부를 노드 한 곳에 <span translate="no">invoke(&quot;능력&quot;)</span> 한 줄과 이 화면의 노드 표(agentops/view.py)를 더한다.</li>
+                <li>기록 · 예산 · 감독관 · 게이트웨이는 저절로 붙는다 — 검색 추적 · 관측에 바로 보인다.</li>
+              </ul>
+            </details>
           </section>
 
           <section className="surface" aria-labelledby="r-title">
@@ -199,6 +197,7 @@ export default function AgentsPage() {
               </p>
             )}
             <IngestMap cat={cat} onPick={onPick} />
+            <p className="m-0 mt-2 text-[12.5px]"><Link href="/catalog/ingest">적재 현황에서 지금 한 번 돌리기 →</Link> <span className="text-[var(--dim)]">스위치가 꺼져 있어도 시험으로 한 번 돈다</span></p>
             <p className="m-0 mt-1 text-[11.5px] text-[var(--dim)] md:hidden">그림은 옆으로 밀어 봅니다</p>
             <ul className="m-0 mt-2 pl-4 text-[12.5px] text-[var(--ink-2)] grid gap-0.5">
               <li>실행 사이의 상태(남은 일 · 실패 횟수 · 다음 갱신일)는 작업 표가 가진다 — 그래프는 한 번 실행 안의 순서만 맡는다.</li>

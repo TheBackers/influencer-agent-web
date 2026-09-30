@@ -1,24 +1,44 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Play, Plus } from "lucide-react";
 import PageHeader from "@/components/v2/app-header";
 import { btn } from "@/components/v2/ui";
 import { Dot, ErrorLine } from "@/components/catalog/bits";
 import { ErrorsList, RunsTable, SectionTitle, StageFlow, Tiles, TopicPicker, TopicsTable, WorkersTable } from "@/components/catalog/ingest-parts";
-import { addTopic, getIngest, getTopicCandidates, patchTopic } from "@/lib/api-catalog";
+import { RunBanner, RunConfirm, doneSum, failSum } from "@/components/catalog/ingest-run";
+import { addTopic, getIngest, getTopicCandidates, patchTopic, runIngestNow } from "@/lib/api-catalog";
 import type { IngestStatus, TopicCandidate, TopicPatch } from "@/types/catalog";
 
-/** 적재 현황 — 1시간마다 크론이 적재 그래프(LangGraph)를 한 번 돈다. 사람은 분야를 고르고, 막힌 것을 본다(낱말은 자동 · D39 · D40) */
+/** 적재 현황 — 1시간마다 크론이 적재 그래프(LangGraph)를 한 번 돈다. 사람은 분야를 고르고, 막힌 것을 본다(낱말은 자동 · D39 · D40).
+ *  '지금 한 번 돌리기'는 스위치가 꺼져 있어도 시험으로 한 번 돈다(0930) — 도는 동안 5초마다 새로 고친다 */
 export default function IngestPage() {
   const [s, setS] = useState<IngestStatus | null>(null);
   const [err, setErr] = useState("");
   const [picking, setPicking] = useState(false);
   const [cands, setCands] = useState<TopicCandidate[] | null>(null);
   const [note, setNote] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [base, setBase] = useState<{ done: number; failed: number } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(() => getIngest().then((x) => { setS(x); setErr(""); }).catch((e) => setErr(String(e?.message || e))), []);
   useEffect(() => { load(); }, [load]);
+  const running = !!(s?.running || s?.manual?.alive);
+  useEffect(() => {                                   // 도는 동안만 — 5초마다 숫자 · 1초마다 지난 시간
+    if (!running) return;
+    const a = setInterval(load, 5000), b = setInterval(() => setNow(Date.now()), 1000);
+    return () => { clearInterval(a); clearInterval(b); };
+  }, [running, load]);
+
+  const onRun = async (minutes: number) => {
+    if (s) setBase({ done: doneSum(s), failed: failSum(s) });
+    await runIngestNow(minutes);
+    setAsking(false);
+    setNow(Date.now());
+    setNote("");
+    await load();
+  };
 
   const openPicker = () => {
     setPicking(true);
@@ -68,6 +88,9 @@ export default function IngestPage() {
         actions={
           <>
             {s && <Dot color={s.enabled ? "var(--pass)" : "var(--border-strong)"} strong={s.enabled}>{s.enabled ? "적재 켜짐" : "적재 꺼짐"}</Dot>}
+            <button type="button" className={btn.primary} onClick={() => { setAsking(true); setPicking(false); }} disabled={!s || running || asking}
+              title={running ? "적재가 도는 중입니다" : "스위치와 상관없이 지금 한 번 돌립니다(시험)"}>
+              <Play size={14} aria-hidden />{running ? "도는 중…" : "지금 한 번 돌리기"}</button>
             <button type="button" className={btn.secondary} onClick={openPicker}><Plus size={14} aria-hidden />분야 고르기</button>
           </>
         }
@@ -75,6 +98,8 @@ export default function IngestPage() {
       {err && <ErrorLine msg={err} />}
       <p aria-live="polite" className="m-0 min-h-0 text-[13px]" style={{ color: note.includes("못했습니다") ? "var(--fail)" : "var(--pass)" }}>{note}</p>
       {picking && <TopicPicker candidates={cands} onAdd={onAdd} onCancel={() => setPicking(false)} />}
+      {s && asking && !running && <RunConfirm s={s} onRun={onRun} onCancel={() => setAsking(false)} />}
+      {s && <RunBanner s={s} base={base} now={now} />}
       {s && (
         <>
           <Tiles s={s} />
