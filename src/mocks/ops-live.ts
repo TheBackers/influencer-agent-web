@@ -63,6 +63,8 @@ export const opsCatalog = {
    "label": "조건 설계",
    "description": "요청문 → 조건 카드 (v3: LLM 은 유형 · 칸 · 기준표, 숫자는 코드가 읽고 측정식은 틀이 만든다). 그래프 밖 · 승인 전",
    "group": "검색",
+   "graph": "search",
+   "nodes": [],
    "capabilities": [
     "plan.conditions"
    ],
@@ -81,13 +83,52 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "골든셋 · 조건",
+    "href": "/ops/golden"
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [],
+   "recent": null,
+   "kpis": [
+    {
+     "label": "검색당 조건",
+     "value": "3.4개",
+     "hint": "조건이 많을수록 판정 비용이 는다",
+     "tone": ""
+    },
+    {
+     "label": "코드로 재는 조건",
+     "value": "62%",
+     "hint": "팔로워 · 활동 · 협찬처럼 AI 없이 재는 조건의 비율 — 높을수록 싸다",
+     "tone": ""
+    },
+    {
+     "label": "근거 찾기 어려운 조건",
+     "value": "1개",
+     "hint": "확인률 50% 미만 — 조건 카드의 대안 · 기준표를 보세요",
+     "tone": "warn"
+    }
+   ]
   },
   {
    "name": "catalog-retriever",
    "label": "DB 거르기",
    "description": "요청 분야를 DB 분야에 맞추고 플랫폼 · 팔로워 · 최근 활동을 SQL로 거른 뒤 후보 묶음과 재사용할 판정을 읽는다 (코드 · LLM 0)",
    "group": "검색",
+   "graph": "search",
+   "nodes": [
+    "retrieve"
+   ],
    "capabilities": [
     "retrieve.catalog"
    ],
@@ -106,13 +147,66 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [],
+   "recent": {
+    "runs": 5,
+    "ok": 5,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1.0,
+    "p95_ms": 420,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 0,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "DB에서 후보를 찾은 검색",
+     "value": "4/5건",
+     "hint": "0건이면 DB가 비었거나 요청 분야가 DB에 없다",
+     "tone": "warn"
+    },
+    {
+     "label": "검색당 DB 후보",
+     "value": "23명",
+     "hint": "SQL로 분야 · 플랫폼 · 팔로워 · 최근 활동을 거른 뒤 남은 사람",
+     "tone": ""
+    },
+    {
+     "label": "DB 분야에 없는 요청",
+     "value": "1건",
+     "hint": "많으면 적재 현황에서 분야를 더하세요",
+     "tone": "warn"
+    }
+   ]
   },
   {
    "name": "profiler",
    "label": "정리",
    "description": "측정식 조건 계산(코드) · 동일인물 확신도 반영 · 플랫폼 카드 정리",
    "group": "검색",
+   "graph": "search",
+   "nodes": [
+    "measure",
+    "research_db",
+    "research"
+   ],
    "capabilities": [
     "profile.assemble"
    ],
@@ -131,25 +225,59 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [],
    "recent": {
-    "runs": 8,
-    "ok": 8,
+    "runs": 64,
+    "ok": 64,
     "partial": 0,
     "failed": 0,
-    "success_rate": 1,
-    "p95_ms": 6,
+    "success_rate": 1.0,
+    "p95_ms": 8,
     "avg_llm_calls": 0,
     "avg_tool_calls": 0,
     "usd": 0,
     "avg_usd": 0,
-    "missions": 1
-   }
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "코드로 걸러낸 비율",
+     "value": "41%",
+     "hint": "측정 조건(팔로워 · 활동 · 성장 · 협찬) 미충족 — AI 판정 전에 탈락",
+     "tone": ""
+    },
+    {
+     "label": "판정으로 넘긴 사람",
+     "value": "검색당 13명",
+     "hint": "인원 × 2.5 명까지만 넘긴다",
+     "tone": ""
+    }
+   ]
   },
   {
    "name": "verifier",
    "label": "조건 판정",
    "description": "판단 조건을 근거 링크로 판정 · 기준표 조건은 연결된 계정 글까지 읽고 문턱은 코드가 적용. 측정식 조건은 profiler",
    "group": "검색",
+   "graph": "search",
+   "nodes": [
+    "research_db",
+    "research"
+   ],
    "capabilities": [
     "verify.conditions"
    ],
@@ -174,25 +302,67 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "골든셋 · 판정",
+    "href": "/ops/golden"
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [
+    "instagram_profile"
+   ],
    "recent": {
-    "runs": 8,
-    "ok": 8,
-    "partial": 0,
+    "runs": 38,
+    "ok": 36,
+    "partial": 2,
     "failed": 0,
-    "success_rate": 1,
-    "p95_ms": 11813,
-    "avg_llm_calls": 0,
-    "avg_tool_calls": 1.25,
-    "usd": 0,
-    "avg_usd": 0,
-    "missions": 1
-   }
+    "success_rate": 0.947,
+    "p95_ms": 11800,
+    "avg_llm_calls": 6.2,
+    "avg_tool_calls": 3.1,
+    "usd": 0.1558,
+    "avg_usd": 0.0041,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "판정 재사용",
+     "value": "58%",
+     "hint": "같은 조건 · 같은 동작 지문이면 다시 판정하지 않는다(D35)",
+     "tone": ""
+    },
+    {
+     "label": "확인 못 함",
+     "value": "18%",
+     "hint": "근거를 못 찾은 판정 — 높으면 조건 설계 · 기준표를 보세요",
+     "tone": "ok"
+    },
+    {
+     "label": "지어낸 근거 되돌림 (O5)",
+     "value": "1건",
+     "hint": "근거 링크가 조사 결과에 없어 '확인 못 함'으로 되돌림",
+     "tone": "warn"
+    }
+   ]
   },
   {
    "name": "account-linker",
    "label": "계정 연결",
    "description": "다른 플랫폼 계정 찾기 — LLM 이 검색 · 글 읽기 · API 조회를 골라 쓰고, 같은 사람인지 내용으로 판단",
    "group": "검색",
+   "graph": "search",
+   "nodes": [
+    "research_db",
+    "research"
+   ],
    "capabilities": [
     "research.link"
    ],
@@ -217,25 +387,64 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "골든셋 · 계정 연결",
+    "href": "/ops/golden"
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [],
    "recent": {
-    "runs": 7,
-    "ok": 7,
-    "partial": 0,
+    "runs": 14,
+    "ok": 13,
+    "partial": 1,
     "failed": 0,
-    "success_rate": 1,
-    "p95_ms": 6244,
-    "avg_llm_calls": 0,
-    "avg_tool_calls": 1,
-    "usd": 0,
-    "avg_usd": 0,
-    "missions": 1
-   }
+    "success_rate": 0.929,
+    "p95_ms": 6200,
+    "avg_llm_calls": 3.4,
+    "avg_tool_calls": 4.2,
+    "usd": 0.0308,
+    "avg_usd": 0.0022,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "다른 플랫폼 찾음",
+     "value": "9/14명",
+     "hint": "찾아야 할 플랫폼이 있던 후보 중 하나라도 붙인 사람",
+     "tone": ""
+    },
+    {
+     "label": "평균 확신도",
+     "value": "0.81",
+     "hint": "0.6 미만은 판정에 안 쓴다(O9)",
+     "tone": "ok"
+    },
+    {
+     "label": "버린 연결",
+     "value": "2건",
+     "hint": "툴 결과에 없는 아이디 · 조회 실패 — 골든셋 후보로 모인다",
+     "tone": ""
+    }
+   ]
   },
   {
    "name": "scout",
    "label": "발굴",
    "description": "각도별 검색 → 후보 8×count → 숫자 필터 + 배치 주제 선별 → 2.5×count",
    "group": "검색 · 모자랄 때",
+   "graph": "search",
+   "nodes": [
+    "dispatch_scout"
+   ],
    "capabilities": [
     "discover.candidates"
    ],
@@ -260,25 +469,66 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "품질 평가 · 결과 채움률",
+    "href": "/ops/eval"
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [
+    "instagram_profile"
+   ],
    "recent": {
-    "runs": 1,
-    "ok": 1,
+    "runs": 3,
+    "ok": 3,
     "partial": 0,
     "failed": 0,
-    "success_rate": 1,
-    "p95_ms": 21027,
-    "avg_llm_calls": 0,
+    "success_rate": 1.0,
+    "p95_ms": 21000,
+    "avg_llm_calls": 2,
     "avg_tool_calls": 10,
-    "usd": 0,
-    "avg_usd": 0,
-    "missions": 1
-   }
+    "usd": 0.0204,
+    "avg_usd": 0.0068,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "실시간까지 간 검색",
+     "value": "2/5건",
+     "hint": "DB로 인원을 못 채워 실시간 발굴을 돌린 검색 — 많으면 적재 분야 · 목표 인원을 늘리세요",
+     "tone": ""
+    },
+    {
+     "label": "후보 → 선별",
+     "value": "46 → 19명",
+     "hint": "선별 = 숫자 · 주제 조건을 통과해 조사로 넘긴 사람",
+     "tone": ""
+    },
+    {
+     "label": "지어낸 핸들 (O4)",
+     "value": "0건",
+     "hint": "검색 결과에 없는 핸들 — 발굴 단계에서 버렸다",
+     "tone": "ok"
+    }
+   ]
   },
   {
    "name": "web-researcher",
    "label": "웹 조사",
    "description": "이름 확정 · 나무위키 · 인터뷰 등 인물 배경 (절차 고정 · LLM 은 뽑아 적기만). 다른 플랫폼 계정은 account-linker",
    "group": "검색 · 모자랄 때",
+   "graph": "search",
+   "nodes": [
+    "research"
+   ],
    "capabilities": [
     "research.web"
    ],
@@ -302,25 +552,68 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [
+    "instagram_profile"
+   ],
    "recent": {
-    "runs": 7,
-    "ok": 7,
+    "runs": 11,
+    "ok": 11,
     "partial": 0,
     "failed": 0,
-    "success_rate": 1,
-    "p95_ms": 4158,
+    "success_rate": 1.0,
+    "p95_ms": 4100,
     "avg_llm_calls": 0,
     "avg_tool_calls": 2,
-    "usd": 0,
-    "avg_usd": 0,
-    "missions": 1
-   }
+    "usd": 0.0044,
+    "avg_usd": 0.0004,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "웹 검색 (작업당)",
+     "value": "2.4회",
+     "hint": "캐시 포함 · 예산(agent.yaml) 안에서 부른 툴 수",
+     "tone": ""
+    },
+    {
+     "label": "빈 결과 · 오류",
+     "value": "12%",
+     "hint": "높으면 검색어 · 토큰 · 한도를 보세요",
+     "tone": "ok"
+    },
+    {
+     "label": "캐시 적중",
+     "value": "31%",
+     "hint": "같은 호출은 게이트웨이 캐시에서 — 비용 · 쿼터를 아낀다",
+     "tone": ""
+    }
+   ]
   },
   {
    "name": "yt-researcher",
    "label": "유튜브",
    "description": "채널 · 최근 영상 40 · 참여율 · 기간별 추세 · 유료 광고 표시 — 3유닛 경로, 전부 코드",
    "group": "검색 · 모자랄 때",
+   "graph": "search",
+   "nodes": [
+    "research_db",
+    "research",
+    "finalize"
+   ],
    "capabilities": [
     "research.youtube"
    ],
@@ -341,25 +634,66 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [],
    "recent": {
-    "runs": 8,
-    "ok": 8,
+    "runs": 19,
+    "ok": 19,
     "partial": 0,
     "failed": 0,
-    "success_rate": 1,
-    "p95_ms": 44,
+    "success_rate": 1.0,
+    "p95_ms": 640,
     "avg_llm_calls": 0,
     "avg_tool_calls": 1,
     "usd": 0,
     "avg_usd": 0,
-    "missions": 1
-   }
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "유튜브 조회 (작업당)",
+     "value": "1.3회",
+     "hint": "캐시 포함 · 예산(agent.yaml) 안에서 부른 툴 수",
+     "tone": ""
+    },
+    {
+     "label": "빈 결과 · 오류",
+     "value": "0%",
+     "hint": "높으면 검색어 · 토큰 · 한도를 보세요",
+     "tone": "ok"
+    },
+    {
+     "label": "캐시 적중",
+     "value": "44%",
+     "hint": "같은 호출은 게이트웨이 캐시에서 — 비용 · 쿼터를 아낀다",
+     "tone": ""
+    }
+   ]
   },
   {
    "name": "ig-researcher",
    "label": "인스타",
    "description": "프로필 · 최근 게시물 25 · 참여율 · 기간별 추세 · 협찬 표시 — 전부 코드. 개인 계정은 limited",
    "group": "검색 · 모자랄 때",
+   "graph": "search",
+   "nodes": [
+    "research_db",
+    "research",
+    "finalize"
+   ],
    "capabilities": [
     "research.instagram"
    ],
@@ -380,25 +714,66 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": true,
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "검색 추적",
+     "href": "/ops/trace"
+    },
+    {
+     "label": "관측 (SLO)",
+     "href": "/ops/observe"
+    }
+   ],
+   "blocked": [
+    "instagram_profile"
+   ],
    "recent": {
-    "runs": 1,
-    "ok": 0,
-    "partial": 1,
+    "runs": 9,
+    "ok": 4,
+    "partial": 5,
     "failed": 0,
-    "success_rate": 0,
+    "success_rate": 0.444,
     "p95_ms": 420,
     "avg_llm_calls": 0,
-    "avg_tool_calls": 2,
+    "avg_tool_calls": 1,
     "usd": 0,
     "avg_usd": 0,
-    "missions": 1
-   }
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "인스타 조회 (작업당)",
+     "value": "1.0회",
+     "hint": "캐시 포함 · 예산(agent.yaml) 안에서 부른 툴 수",
+     "tone": ""
+    },
+    {
+     "label": "빈 결과 · 오류",
+     "value": "56%",
+     "hint": "높으면 검색어 · 토큰 · 한도를 보세요",
+     "tone": "bad"
+    },
+    {
+     "label": "토큰 만료 · 차단 (O8)",
+     "value": "1건",
+     "hint": "인스타 토큰이 만료되면 그 검색 끝까지 인스타를 막는다",
+     "tone": "bad"
+    }
+   ]
   },
   {
    "name": "seed-harvester",
    "label": "씨앗 줍기",
    "description": "분야 낱말로 소개글 속 인스타 계정 · 유튜브 채널을 모은다. 쓸 검색어가 모자라면 해시태그 · AI로 낱말을 늘린다",
    "group": "적재",
+   "graph": "ingest",
+   "nodes": [
+    "seed"
+   ],
    "capabilities": [
     "seed.accounts"
    ],
@@ -420,13 +795,66 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "적재 현황",
+     "href": "/catalog/ingest"
+    }
+   ],
+   "blocked": [],
+   "recent": {
+    "runs": 4,
+    "ok": 4,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1.0,
+    "p95_ms": 5200,
+    "avg_llm_calls": 0.5,
+    "avg_tool_calls": 6,
+    "usd": 0.0036,
+    "avg_usd": 0.0009,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "7일 새 인물",
+     "value": "38명",
+     "hint": "씨앗 줍기가 새로 넣은 사람(수집 전 포함)",
+     "tone": ""
+    },
+    {
+     "label": "검색 1회당 새 사람",
+     "value": "2.6명",
+     "hint": "낮은 낱말은 저절로 꺼진다(D40)",
+     "tone": ""
+    },
+    {
+     "label": "켜진 낱말",
+     "value": "21/24개",
+     "hint": "쓸 검색어가 남은 낱말이 적으면 해시태그 · AI로 늘린다",
+     "tone": ""
+    },
+    {
+     "label": "24시간 완료 · 실패",
+     "value": "4 · 0",
+     "hint": "대기 2개",
+     "tone": "ok"
+    }
+   ]
   },
   {
    "name": "collector",
    "label": "수집",
    "description": "계정 하나의 프로필과 최근 활동을 가져온다 — 인스타 게시물 25 · 유튜브 영상 40 · 블로그 글 10 (코드 · LLM 0)",
    "group": "적재",
+   "graph": "ingest",
+   "nodes": [
+    "collect"
+   ],
    "capabilities": [
     "collect.instagram",
     "collect.youtube",
@@ -451,13 +879,68 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "적재 현황",
+     "href": "/catalog/ingest"
+    }
+   ],
+   "blocked": [
+    "instagram_profile"
+   ],
+   "recent": {
+    "runs": 103,
+    "ok": 96,
+    "partial": 0,
+    "failed": 7,
+    "success_rate": 0.932,
+    "p95_ms": 2400,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 1.1,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "24시간 완료 · 실패",
+     "value": "96 · 7",
+     "hint": "대기 31개",
+     "tone": "warn"
+    },
+    {
+     "label": "신선한 정보",
+     "value": "81%",
+     "hint": "14일 안에 다시 모은 사람의 비율 — 오래되면 다시 수집 작업이 생긴다",
+     "tone": "ok"
+    },
+    {
+     "label": "인스타 이번 시간",
+     "value": "92 / 100",
+     "hint": "Meta 호출 몫 — 다 쓰면 그 시간엔 인스타 수집을 꺼내지 않는다",
+     "tone": "warn"
+    },
+    {
+     "label": "유튜브 유닛 오늘",
+     "value": "1,240 / 4,000",
+     "hint": "YouTube Data API 쿼터 몫(검색과 따로)",
+     "tone": "ok"
+    }
+   ]
   },
   {
    "name": "extractor",
    "label": "뽑기",
    "description": "수집한 계정의 소개 · 게시물에서 다른 플랫폼 계정(링크) · 협찬 표시와 브랜드 · 본인이 공개한 연락처를 뽑는다 (코드 · LLM 0)",
    "group": "적재",
+   "graph": "ingest",
+   "nodes": [
+    "collect"
+   ],
    "capabilities": [
     "extract.account"
    ],
@@ -476,13 +959,60 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "적재 현황",
+     "href": "/catalog/ingest"
+    }
+   ],
+   "blocked": [],
+   "recent": {
+    "runs": 96,
+    "ok": 96,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1.0,
+    "p95_ms": 12,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 0.2,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "연락처 못 찾음",
+     "value": "27명 (21%)",
+     "hint": "소개란 · 웹 보강 모두에서 못 찾은 사람 — 사람이 직접 찾을 목록",
+     "tone": ""
+    },
+    {
+     "label": "확인 필요",
+     "value": "3명",
+     "hint": "계정 결합 · 분류가 애매해 사람이 볼 사람",
+     "tone": ""
+    },
+    {
+     "label": "돌 때",
+     "value": "수집 작업마다",
+     "hint": "한 계정 = 한 작업 · 수집 다음에 바로 뽑는다(LLM 0)",
+     "tone": ""
+    }
+   ]
   },
   {
    "name": "classifier",
    "label": "분류",
    "description": "소개 · 최근 활동을 보고 분야 태그(분야 목록 안에서) · 계정 종류 · 한 줄 요약을 붙인다 — 20명씩 AI 1회",
    "group": "적재",
+   "graph": "ingest",
+   "nodes": [
+    "classify"
+   ],
    "capabilities": [
     "classify.profile"
    ],
@@ -501,13 +1031,60 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "적재 현황",
+     "href": "/catalog/ingest"
+    }
+   ],
+   "blocked": [],
+   "recent": {
+    "runs": 5,
+    "ok": 5,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1.0,
+    "p95_ms": 7400,
+    "avg_llm_calls": 1,
+    "avg_tool_calls": 0,
+    "usd": 0.0155,
+    "avg_usd": 0.0031,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "24시간 완료 · 실패",
+     "value": "88 · 0",
+     "hint": "대기 12개",
+     "tone": "ok"
+    },
+    {
+     "label": "개인 크리에이터",
+     "value": "104/128명",
+     "hint": "브랜드 · 매장 · 언론 계정은 웹 보강 · 검색 후보에서 뺀다",
+     "tone": ""
+    },
+    {
+     "label": "이번 달 AI 비용",
+     "value": "$1.86 / $10",
+     "hint": "적재 AI(분류 · 낱말 넓히기)의 월 상한 — 닿으면 AI 단계만 멈춘다(O2)",
+     "tone": "ok"
+    }
+   ]
   },
   {
    "name": "web-enricher",
    "label": "웹 보강",
    "description": "개인 크리에이터만 — 이름 · 아이디로 기사 · 인터뷰를 찾아 본인 확인 등급을 붙이고, 본인 계정에 인스타 · 연락처가 없으면 검색 결과에서 찾는다 (코드 · LLM 0)",
    "group": "적재",
+   "graph": "ingest",
+   "nodes": [
+    "enrich"
+   ],
    "capabilities": [
     "enrich.person"
    ],
@@ -528,13 +1105,52 @@ export const opsCatalog = {
    },
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [
+    {
+     "label": "적재 현황",
+     "href": "/catalog/ingest"
+    }
+   ],
+   "blocked": [],
+   "recent": {
+    "runs": 42,
+    "ok": 40,
+    "partial": 0,
+    "failed": 2,
+    "success_rate": 0.952,
+    "p95_ms": 3900,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 3.2,
+    "usd": 0.0126,
+    "avg_usd": 0.0003,
+    "missions": 5
+   },
+   "kpis": [
+    {
+     "label": "24시간 완료 · 실패",
+     "value": "40 · 2",
+     "hint": "대기 9개",
+     "tone": "warn"
+    },
+    {
+     "label": "웹 검색 오늘",
+     "value": "214 / 3,000",
+     "hint": "씨앗 줍기와 몫을 나눠 쓴다",
+     "tone": "ok"
+    }
+   ]
   },
   {
    "name": "campaign-planner",
    "label": "캠페인 기획",
    "description": "향후 슬롯 — celeb-outreach 캠페인 기획",
    "group": "다음 단계(꺼짐)",
+   "graph": "next",
+   "nodes": [],
    "capabilities": [
     "plan.campaign"
    ],
@@ -550,13 +1166,22 @@ export const opsCatalog = {
    "slo": {},
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [],
+   "blocked": [],
+   "recent": null,
+   "kpis": []
   },
   {
    "name": "dm-writer",
    "label": "DM 작성",
    "description": "향후 슬롯 — 제안 DM 작성 (발송은 사람 승인)",
    "group": "다음 단계(꺼짐)",
+   "graph": "next",
+   "nodes": [],
    "capabilities": [
     "write.dm"
    ],
@@ -572,13 +1197,22 @@ export const opsCatalog = {
    "slo": {},
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [],
+   "blocked": [],
+   "recent": null,
+   "kpis": []
   },
   {
    "name": "qc",
    "label": "검수",
    "description": "향후 슬롯 — 문구 · 정책 검수",
    "group": "다음 단계(꺼짐)",
+   "graph": "next",
+   "nodes": [],
    "capabilities": [
     "review.quality"
    ],
@@ -594,13 +1228,22 @@ export const opsCatalog = {
    "slo": {},
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [],
+   "blocked": [],
+   "recent": null,
+   "kpis": []
   },
   {
    "name": "reply-handler",
    "label": "답장 대응",
    "description": "향후 슬롯 — 응답 분류 · 재기획",
    "group": "다음 단계(꺼짐)",
+   "graph": "next",
+   "nodes": [],
    "capabilities": [
     "handle.reply"
    ],
@@ -616,129 +1259,475 @@ export const opsCatalog = {
    "slo": {},
    "version": "1.0.0",
    "in_template": false,
-   "recent": null
+   "evaluated_by": {
+    "label": "단위 시험만",
+    "href": ""
+   },
+   "watch": [],
+   "blocked": [],
+   "recent": null,
+   "kpis": []
   }
  ],
- "graph": {
-  "nodes": [
-   {
-    "id": "plan_mission",
-    "label": "조건 → 실행 계획"
-   },
-   {
-    "id": "retrieve",
-    "label": "DB에서 거르기"
-   },
-   {
-    "id": "measure",
-    "label": "코드로 재기"
-   },
-   {
-    "id": "research_db",
-    "label": "DB 후보 판정"
-   },
-   {
-    "id": "dispatch_scout",
-    "label": "실시간 발굴"
-   },
-   {
-    "id": "research",
-    "label": "실시간 후보 조사"
-   },
-   {
-    "id": "review",
-    "label": "근거 검토"
-   },
-   {
-    "id": "judge",
-    "label": "통과 · 탈락"
-   },
-   {
-    "id": "finalize",
-    "label": "재확인 · 저장"
+ "graphs": {
+  "search": {
+   "trigger": "관리자 검색 — 조건 카드를 승인하면 시작",
+   "outside": [
+    {
+     "agent": "query-planner",
+     "label": "조건 설계",
+     "where": "그래프 밖 — 요청문 → 조건 카드 → 사람 승인 뒤 그래프가 시작한다"
+    }
+   ],
+   "nodes": [
+    {
+     "id": "plan_mission",
+     "label": "조건 → 실행 계획",
+     "agents": [],
+     "detail": ""
+    },
+    {
+     "id": "retrieve",
+     "label": "DB에서 거르기",
+     "agents": [
+      "catalog-retriever"
+     ],
+     "detail": ""
+    },
+    {
+     "id": "measure",
+     "label": "코드로 재기",
+     "agents": [
+      "profiler"
+     ],
+     "detail": ""
+    },
+    {
+     "id": "research_db",
+     "label": "DB 후보 판정",
+     "agents": [
+      "account-linker",
+      "yt-researcher",
+      "ig-researcher",
+      "verifier",
+      "profiler"
+     ],
+     "detail": ""
+    },
+    {
+     "id": "dispatch_scout",
+     "label": "실시간 발굴",
+     "agents": [
+      "scout"
+     ],
+     "detail": ""
+    },
+    {
+     "id": "research",
+     "label": "실시간 후보 조사",
+     "agents": [
+      "web-researcher",
+      "account-linker",
+      "yt-researcher",
+      "ig-researcher",
+      "verifier",
+      "profiler"
+     ],
+     "detail": ""
+    },
+    {
+     "id": "review",
+     "label": "근거 검토",
+     "agents": [],
+     "detail": ""
+    },
+    {
+     "id": "judge",
+     "label": "통과 · 탈락",
+     "agents": [],
+     "detail": ""
+    },
+    {
+     "id": "finalize",
+     "label": "재확인 · 저장",
+     "agents": [
+      "yt-researcher",
+      "ig-researcher"
+     ],
+     "detail": ""
+    }
+   ],
+   "edges": [
+    {
+     "from": "START",
+     "to": "plan_mission",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "plan_mission",
+     "to": "retrieve",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "retrieve",
+     "to": "measure",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "measure",
+     "to": "research_db",
+     "kind": "fanout",
+     "label": "DB 후보마다 Send"
+    },
+    {
+     "from": "measure",
+     "to": "dispatch_scout",
+     "kind": "normal",
+     "label": "DB 후보 0명"
+    },
+    {
+     "from": "research_db",
+     "to": "review",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "dispatch_scout",
+     "to": "research",
+     "kind": "fanout",
+     "label": "새 후보마다 Send"
+    },
+    {
+     "from": "research",
+     "to": "review",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "review",
+     "to": "research",
+     "kind": "loop",
+     "label": "근거 부족 → 그 조건만 재조사(실시간 후보만)"
+    },
+    {
+     "from": "review",
+     "to": "judge",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "judge",
+     "to": "dispatch_scout",
+     "kind": "loop",
+     "label": "인원 부족 → 실시간으로 채움"
+    },
+    {
+     "from": "judge",
+     "to": "finalize",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "finalize",
+     "to": "END",
+     "kind": "normal",
+     "label": ""
+    }
+   ],
+   "usage": {
+    "searches": 5,
+    "nodes": {
+     "plan_mission": 5,
+     "retrieve": 5,
+     "measure": 5,
+     "research_db": 4,
+     "dispatch_scout": 2,
+     "research": 2,
+     "review": 5,
+     "judge": 5,
+     "finalize": 5
+    },
+    "edges": {
+     "START>plan_mission": 5,
+     "plan_mission>retrieve": 5,
+     "retrieve>measure": 5,
+     "measure>research_db": 4,
+     "research_db>review": 4,
+     "measure>dispatch_scout": 1,
+     "dispatch_scout>research": 2,
+     "research>review": 2,
+     "review>research": 1,
+     "review>judge": 5,
+     "judge>dispatch_scout": 1,
+     "judge>finalize": 5,
+     "finalize>END": 5
+    }
    }
-  ],
-  "edges": [
-   {
-    "from": "START",
-    "to": "plan_mission",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "plan_mission",
-    "to": "retrieve",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "retrieve",
-    "to": "measure",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "measure",
-    "to": "research_db",
-    "kind": "fanout",
-    "label": "DB 후보마다 Send"
-   },
-   {
-    "from": "measure",
-    "to": "dispatch_scout",
-    "kind": "normal",
-    "label": "DB 후보 0명"
-   },
-   {
-    "from": "research_db",
-    "to": "review",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "dispatch_scout",
-    "to": "research",
-    "kind": "fanout",
-    "label": "새 후보마다 Send"
-   },
-   {
-    "from": "research",
-    "to": "review",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "review",
-    "to": "research",
-    "kind": "loop",
-    "label": "근거 부족 → 그 조건만 재조사(실시간 후보만)"
-   },
-   {
-    "from": "review",
-    "to": "judge",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "judge",
-    "to": "dispatch_scout",
-    "kind": "loop",
-    "label": "인원 부족 → 실시간으로 채움"
-   },
-   {
-    "from": "judge",
-    "to": "finalize",
-    "kind": "normal",
-    "label": ""
-   },
-   {
-    "from": "finalize",
-    "to": "END",
-    "kind": "normal",
-    "label": ""
+  },
+  "ingest": {
+   "trigger": "크론 1시간마다 — INGEST_ENABLED=1 일 때",
+   "outside": [],
+   "nodes": [
+    {
+     "id": "pick",
+     "label": "작업 꺼내기",
+     "agents": [],
+     "detail": ""
+    },
+    {
+     "id": "seed",
+     "label": "씨앗 줍기",
+     "agents": [
+      "seed-harvester"
+     ],
+     "detail": "한 판 2분야"
+    },
+    {
+     "id": "collect",
+     "label": "수집 · 뽑기",
+     "agents": [
+      "collector",
+      "extractor"
+     ],
+     "detail": "한 판 인스타 10 · 유튜브 5 · 블로그 5"
+    },
+    {
+     "id": "classify",
+     "label": "분류",
+     "agents": [
+      "classifier"
+     ],
+     "detail": "한 판 20명"
+    },
+    {
+     "id": "enrich",
+     "label": "웹 보강",
+     "agents": [
+      "web-enricher"
+     ],
+     "detail": "한 판 4명"
+    },
+    {
+     "id": "tally",
+     "label": "세고 멈출지 보기",
+     "agents": [],
+     "detail": ""
+    }
+   ],
+   "edges": [
+    {
+     "from": "START",
+     "to": "pick",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "pick",
+     "to": "seed",
+     "kind": "fanout",
+     "label": "분야 작업마다 Send"
+    },
+    {
+     "from": "pick",
+     "to": "collect",
+     "kind": "fanout",
+     "label": "계정마다 Send"
+    },
+    {
+     "from": "pick",
+     "to": "classify",
+     "kind": "fanout",
+     "label": "분류 작업을 한 묶음으로"
+    },
+    {
+     "from": "pick",
+     "to": "enrich",
+     "kind": "fanout",
+     "label": "사람마다 Send"
+    },
+    {
+     "from": "pick",
+     "to": "END",
+     "kind": "normal",
+     "label": "할 일 없음 · 몫 소진 · 마감 5분 전"
+    },
+    {
+     "from": "seed",
+     "to": "tally",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "collect",
+     "to": "tally",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "classify",
+     "to": "tally",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "enrich",
+     "to": "tally",
+     "kind": "normal",
+     "label": ""
+    },
+    {
+     "from": "tally",
+     "to": "pick",
+     "kind": "loop",
+     "label": "다음 판"
+    },
+    {
+     "from": "tally",
+     "to": "END",
+     "kind": "normal",
+     "label": "이번 판이 전부 몫 소진 · 차단"
+    }
+   ],
+   "usage": {
+    "note": "",
+    "enabled": true,
+    "stages": {
+     "seed": {
+      "waiting": 2,
+      "done_24h": 4,
+      "failed_24h": 0
+     },
+     "collect": {
+      "waiting": 31,
+      "done_24h": 96,
+      "failed_24h": 7
+     },
+     "classify": {
+      "waiting": 12,
+      "done_24h": 88,
+      "failed_24h": 0
+     },
+     "enrich": {
+      "waiting": 9,
+      "done_24h": 40,
+      "failed_24h": 2
+     },
+     "store": {
+      "waiting": 0,
+      "done_24h": 0,
+      "failed_24h": 0
+     }
+    },
+    "last_run": {
+     "id": "ing_42",
+     "started_at": "2026-09-30T10:00:12+09:00",
+     "minutes": 18.4,
+     "processed": 61,
+     "added": 9,
+     "failed": 3,
+     "usd": 0.06,
+     "stopped": "할 일 없음"
+    }
    }
-  ]
+  }
  },
+ "overseer": [
+  {
+   "rule": "O1",
+   "name": "예산",
+   "severity": "경고",
+   "action": "유튜브 쿼터 · 작업별 툴 한도 초과 → 그 호출 거절 · 작업 partial",
+   "where": "작업 범위 · 게이트웨이",
+   "graphs": [
+    "search",
+    "ingest"
+   ]
+  },
+  {
+   "rule": "O2",
+   "name": "검색 예산",
+   "severity": "치명",
+   "action": "AI 비용 상한 80% → 새 배정 중지 · 100% → LLM 호출 거절 → 있는 결과로 종료",
+   "where": "총괄 배정 전 · LLM 호출 직전",
+   "graphs": [
+    "search",
+    "ingest"
+   ]
+  },
+  {
+   "rule": "O3",
+   "name": "루프",
+   "severity": "경고",
+   "action": "같은 (후보, 능력, 초점) 배정 3회째 거부 → unknown 확정",
+   "where": "총괄 배정 전",
+   "graphs": [
+    "search"
+   ]
+  },
+  {
+   "rule": "O4",
+   "name": "지어낸 핸들",
+   "severity": "치명",
+   "action": "그 후보 폐기 · policy.violated",
+   "where": "발굴 결과",
+   "graphs": [
+    "search"
+   ]
+  },
+  {
+   "rule": "O5",
+   "name": "지어낸 근거",
+   "severity": "치명",
+   "action": "근거 URL 이 툴 결과에 없음 → 그 판정을 unknown 으로",
+   "where": "판정 결과",
+   "graphs": [
+    "search"
+   ]
+  },
+  {
+   "rule": "O6",
+   "name": "시간 초과",
+   "severity": "경고",
+   "action": "작업 deadline 초과 → partial",
+   "where": "작업 범위",
+   "graphs": [
+    "search",
+    "ingest"
+   ]
+  },
+  {
+   "rule": "O7",
+   "name": "모델 오류 연속",
+   "severity": "경고",
+   "action": "같은 모델 오류 3회 연속 → 대체 모델 (models.fallback)",
+   "where": "아직 코드 없음",
+   "graphs": []
+  },
+  {
+   "rule": "O8",
+   "name": "외부 차단",
+   "severity": "치명",
+   "action": "토큰 만료 · 쿼터 소진 · 결제 필요 → 그 툴을 검색 끝까지 차단",
+   "where": "게이트웨이",
+   "graphs": [
+    "search",
+    "ingest"
+   ]
+  },
+  {
+   "rule": "O9",
+   "name": "동일인물 불확실",
+   "severity": "정보",
+   "action": "확신도 < 0.6 인 계정은 붙이지 않고 '확인 필요'",
+   "where": "계정 결합",
+   "graphs": [
+    "search"
+   ]
+  }
+ ],
  "research": [
   "research.web",
   "research.link",
@@ -748,7 +1737,8 @@ export const opsCatalog = {
   "profile.assemble"
  ],
  "discover": "discover.candidates",
- "recent_missions": 1
+ "recent_missions": 5,
+ "recent_ingest_runs": 3
 } as unknown as OpsCatalog;
 
 export const opsHealth = {

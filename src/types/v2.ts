@@ -508,6 +508,14 @@ export interface OpsAgentSpec {
   slo: Record<string, number>; version: string; in_template: boolean;
   /** 어느 쪽 일인가 — 검색 · 검색 · 모자랄 때 · 적재 · 다음 단계(꺼짐) (agentops/view.py agent_group) */
   group?: string;
+  /** 어느 그래프의 워커인가 · 그 그래프에서 이 워커를 부르는 노드 (없으면 그래프 밖) */
+  graph?: "search" | "ingest" | "next"; nodes?: string[];
+  /** 품질을 무엇으로 재나(골든셋 · 품질 평가 · 단위 시험) · 어디서 보나 */
+  evaluated_by?: { label: string; href: string }; watch?: { label: string; href: string }[];
+  /** 지금 막힌 툴(감독관 O8 · 6시간 뒤 다시 시도) */
+  blocked?: string[];
+  /** 역할 지표 — 검색 워커는 최근 검색 이벤트, 적재 워커는 적재 현황에서 (agentops/roles.py) */
+  kpis?: OpsKpi[];
   recent?: { runs: number; ok: number; partial: number; failed: number; success_rate: number | null; p95_ms: number;
              avg_llm_calls: number; avg_tool_calls: number; missions: number; usd?: number; avg_usd?: number } | null;
 }
@@ -528,12 +536,31 @@ export interface OpsFeedback {
              agents: { agent: string; count: number }[] };
   reasons: { reason: FeedbackReason; label: string; agent: string }[];
 }
+export interface OpsKpi { label: string; value: string; hint: string; tone: "ok" | "warn" | "bad" | "" }
+export interface OpsCatalogGraph {
+  trigger: string;
+  /** 그래프 밖에서 먼저 도는 워커 — 검색의 조건 설계(승인 전) */
+  outside: { agent: string; label: string; where: string }[];
+  /** agents = 이 노드가 부르는 워커(부르는 순서) · 비었으면 총괄 코드만 · detail = 적재 노드의 한 판 몫 */
+  nodes: { id: string; label: string; agents: string[]; detail: string }[];
+  edges: { from: string; to: string; kind: string; label: string }[];
+}
 export interface OpsCatalog {
   agents: OpsAgentSpec[];
-  graph: { nodes: { id: string; label: string }[]; edges: { from: string; to: string; kind: string; label: string }[] };
+  graphs: {
+    /** usage = 최근 검색 N건 중 그 노드 · 갈림길(키 "from>to")을 탄 건수 */
+    search: OpsCatalogGraph & { usage?: { searches: number; nodes: Record<string, number>; edges: Record<string, number> } };
+    /** usage = 적재 현황의 단계별 24시간 숫자 · 마지막 실행 (DB가 없으면 note) */
+    ingest: OpsCatalogGraph & { usage?: { note: string; enabled: boolean;
+      stages: Record<string, { waiting: number; done_24h: number; failed_24h: number }>;
+      last_run: { id: string; started_at: string; minutes: number; processed: number; added: number; failed: number; usd: number; stopped: string } | null } };
+  };
+  /** 감독관 규칙 O1~O9 — 어디서 걸리나 · 어느 그래프에 쓰이나 */
+  overseer: { rule: string; name: string; severity: string; action: string; where: string; graphs: string[] }[];
   research: string[];
   discover: string;
   recent_missions: number;
+  recent_ingest_runs?: number;
 }
 export interface OpsHealth { checks: HealthCheck[]; blocked: { tool: string; reason: string; impact: string }[] }
 

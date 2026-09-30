@@ -131,7 +131,7 @@ export default function OpsOverviewPage() {
         <section className="surface" aria-labelledby="a-title">
           <div className="flex items-baseline gap-2 px-4 pt-3.5 pb-2">
             <h2 id="a-title" className="m-0 text-[14px] font-semibold">에이전트 상태</h2>
-            <span className="text-[12.5px] text-[var(--dim)]">최근 검색 {cat.recent_missions}건 기준</span>
+            <span className="text-[12.5px] text-[var(--dim)]">최근 검색 {cat.recent_missions}건 · 적재 실행 {cat.recent_ingest_runs ?? 0}회 기준</span>
             <Link href="/ops/agents" className="ml-auto text-[12.5px]">구성 · 명세 보기</Link>
           </div>
           <div className="relative overflow-x-auto">
