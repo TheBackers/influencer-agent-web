@@ -10,12 +10,13 @@
  *   GET   /api/catalog/people/{id}            → Person
  *   PATCH /api/catalog/people/{id}            → Person        (고친 칸은 잠김 · 골든셋 후보 D27 · 숨기기 D26)
  *   GET   /api/catalog/ingest                 → IngestStatus
- *   POST  /api/catalog/topics                 → IngestStatus  (분야 추가)
- *   PATCH /api/catalog/topics/{name}          → IngestStatus  (켜기/끄기 · 검색 낱말 더하기 D25)
+ *   GET   /api/catalog/topics/candidates      → TopicCandidate[]  (분야 후보 · 이미 넣은 분야는 빠짐 D39)
+ *   POST  /api/catalog/topics                 → IngestStatus  (분야 추가 — 낱말은 비워도 됨 D39 · D40)
+ *   PATCH /api/catalog/topics/{name}          → IngestStatus  (켜기/끄기 · 낱말 더하기 D25 · 낱말 빼기 D40)
  */
 import { http, USE_MOCK } from "@/lib/api-v2";
 import type {
-  IngestStatus, NewTopic, PeoplePage, PeopleQuery, Person, PersonPatch, TopicPatch,
+  IngestStatus, KeywordRow, NewTopic, PeoplePage, PeopleQuery, Person, PersonPatch, TopicCandidate, TopicPatch,
 } from "@/types/catalog";
 
 type MockModule = typeof import("@/mocks/catalog");
@@ -141,18 +142,35 @@ export async function getIngest(): Promise<IngestStatus> {
   return http("/api/catalog/ingest");
 }
 
+export async function getTopicCandidates(): Promise<TopicCandidate[]> {
+  if (!USE_MOCK) return http("/api/catalog/topics/candidates");
+  const s = await mockDb();
+  await wait(100);
+  return structuredClone(s.mod.TOPIC_CANDIDATES.filter((c) => !s.ingest.topics.some((t) => t.name === c.name)));
+}
+
+const row = (word: string, source: KeywordRow["source"]): KeywordRow => ({ word, source, status: "active", queries: 0, added: 0, classified: 0, hits: 0 });
+const activeWords = (rows: KeywordRow[]) => rows.filter((k) => k.status === "active").map((k) => k.word);
+
+/** 분야 추가 — 낱말이 비면 후보 낱말, 후보도 아니면 비워 두고 첫 적재가 자동으로 만든다 (SQL catalog_topic_add 와 같게) */
 export async function addTopic(t: NewTopic): Promise<IngestStatus> {
   if (!USE_MOCK) return http("/api/catalog/topics", { method: "POST", body: JSON.stringify(t) });
   const s = await mockDb();
   await wait(200);
-  if (s.ingest.topics.some((x) => x.name === t.name)) throw new Error("이미 있는 분야입니다");
+  const name = t.name.trim();
+  if (s.ingest.topics.some((x) => x.name === name)) throw new Error("이미 있는 분야입니다");
+  const given = [...new Set((t.keywords || []).map((k) => k.trim()).filter(Boolean))];
+  const cand = s.mod.TOPIC_CANDIDATES.find((c) => c.name === name);
+  const rows = given.length ? given.map((w) => row(w, "manual")) : (cand?.keywords || []).map((w) => row(w, "seed"));
   s.ingest.topics.push({
-    name: t.name, enabled: true, target: t.target, people: 0, creators: 0, fresh_ratio: 0, new_7d: 0,
-    keywords: t.keywords, queries_used: 0, yield_per_query: 0, last_run_at: "",
+    name, enabled: true, target: t.target, origin: !given.length && cand ? "candidate" : "manual",
+    people: 0, creators: 0, fresh_ratio: 0, new_7d: 0,
+    keywords: activeWords(rows), keyword_rows: rows, queries_used: 0, yield_per_query: 0, last_run_at: "",
   });
   return structuredClone(s.ingest);
 }
 
+/** 켜기/끄기 · 목표 · 낱말 더하기(꺼진 낱말은 다시 켬) · 낱말 빼기(다시 자동으로 넣지 않음) — SQL catalog_topic_patch 와 같게 */
 export async function patchTopic(name: string, patch: TopicPatch): Promise<IngestStatus> {
   if (!USE_MOCK) return http(`/api/catalog/topics/${encodeURIComponent(name)}`, { method: "PATCH", body: JSON.stringify(patch) });
   const s = await mockDb();
@@ -161,6 +179,13 @@ export async function patchTopic(name: string, patch: TopicPatch): Promise<Inges
   if (!t) throw new Error("없는 분야입니다");
   if (patch.enabled !== undefined) t.enabled = patch.enabled;
   if (patch.target !== undefined) t.target = patch.target;
-  if (patch.add_keywords?.length) t.keywords = [...new Set([...t.keywords, ...patch.add_keywords.map((k) => k.trim()).filter(Boolean)])];
+  for (const w of (patch.add_keywords || []).map((k) => k.trim()).filter(Boolean)) {
+    const have = t.keyword_rows.find((k) => k.word === w);
+    if (!have) t.keyword_rows.push(row(w, "manual"));
+    else if (have.status === "off") { have.status = "active"; have.source = "manual"; delete have.off_reason; }
+  }
+  const gone = new Set((patch.remove_keywords || []).map((k) => k.trim()));
+  t.keyword_rows = t.keyword_rows.filter((k) => !gone.has(k.word));
+  t.keywords = activeWords(t.keyword_rows);
   return structuredClone(s.ingest);
 }

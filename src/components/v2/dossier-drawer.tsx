@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { X, ExternalLink } from "lucide-react";
 import type { ConditionSpec, Dossier, PlatformCard, WebItem, WebKind } from "@/types/v2";
 import { Avatar, VerdictBadge, compact, fmtDate, num, pct, unconfirmed } from "./ui";
@@ -104,9 +105,41 @@ function UnconfirmedNote({ d, short = false }: { d: Dossier; short?: boolean }) 
       </p>
       {!short && (
         <p className="m-0 mt-1 text-[var(--ink-2)]">
-          조건을 확실히 충족한 사람이 요청 인원보다 적어 함께 보여 줍니다. 미충족이 확인된 사람은 결과에 넣지 않습니다.
+          근거가 모자라 판단을 보류한 사람이라 결과 인원에 세지 않고 따로 보여 줍니다(미충족이 확인된 사람은 넣지 않습니다).
           무엇을 못 봤는지는 &lsquo;조건&rsquo; 탭에서 확인하세요.
         </p>
+      )}
+    </div>
+  );
+}
+
+const CONTACT_KO: Record<string, string> = { instagram: "인스타 DM", email: "이메일", link: "링크", kakao: "카카오", site: "사이트" };
+
+/** 어디서 찾았나(D42) · 연락처 — DB 인물은 인플루언서 목록으로 이어진다 */
+function Origin({ d }: { d: Dossier }) {
+  if (!d.origin) return null;
+  const contacts = d.contacts ?? [];
+  return (
+    <div className="flex flex-col gap-2 text-[12.5px]">
+      <p className="m-0 text-[var(--ink-2)] flex flex-wrap gap-x-3 gap-y-0.5">
+        {d.origin === "db"
+          ? <span>인플루언서 DB에서 찾음{d.info_age_days != null ? ` · 정보 ${d.info_age_days}일 전` : ""}</span>
+          : <span>DB에 없어 실시간으로 찾음 — DB에 넣었고 다음 적재가 정보를 모읍니다</span>}
+        {d.person_id && <Link href={`/catalog?person=${encodeURIComponent(d.person_id)}`}>인플루언서 DB에서 보기</Link>}
+      </p>
+      {contacts.length > 0 && (
+        <div>
+          <h3 className="m-0 mb-1 text-[13px] font-semibold">연락처</h3>
+          <ul className="m-0 p-0 list-none space-y-0.5">
+            {contacts.map((c) => (
+              <li key={c.kind + c.value} className="flex flex-wrap gap-x-2 min-w-0">
+                <span className="text-[var(--dim)] w-[64px] shrink-0">{CONTACT_KO[c.kind] ?? c.kind}</span>
+                <span className="select-all break-all">{c.value}</span>
+                {c.source_url && <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="text-[var(--dim)]">출처</a>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
@@ -117,6 +150,7 @@ function Summary({ d }: { d: Dossier }) {
   return (
     <div className="flex flex-col gap-5">
       <UnconfirmedNote d={d} />
+      <Origin d={d} />
       <p className="m-0 leading-relaxed text-[var(--ink-2)]">{d.summary}</p>
       <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4">
         <Stat label="인스타 팔로워" value={ig ? compact(ig.followers) : "—"} sub={ig ? (ig.engagement_known ? `참여율 ${ig.engagement_rate}%` : "지표 비공개") : "계정 없음"} />

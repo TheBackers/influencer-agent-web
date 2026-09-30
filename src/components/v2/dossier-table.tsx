@@ -58,7 +58,7 @@ export default function DossierTable({ list, sort, onSort, onOpen, selected }: P
                       <Avatar name={d.name} hue={d.avatar_hue} src={d.avatar} size={28} />
                       <span className="min-w-0">
                         <span className="block font-medium truncate">{d.name}</span>
-                        <span className="block text-[12px] text-[var(--dim)] truncate">{d.handle}</span>
+                        <span className="block text-[12px] text-[var(--dim)] truncate">{d.handle}{d.origin === "live" && <span title="DB에 없어 실시간으로 찾음 — DB에 넣었다(D42)"> · 실시간</span>}</span>
                         <UnconfirmedBadge d={d} />
                       </span>
                     </button>

@@ -62,6 +62,7 @@ export const opsCatalog = {
    "name": "query-planner",
    "label": "조건 설계",
    "description": "요청문 → 조건 카드 (v3: LLM 은 유형 · 칸 · 기준표, 숫자는 코드가 읽고 측정식은 틀이 만든다). 그래프 밖 · 승인 전",
+   "group": "검색",
    "capabilities": [
     "plan.conditions"
    ],
@@ -70,7 +71,7 @@ export const opsCatalog = {
    "uses_llm": true,
    "tool_choice": "툴 없음",
    "budget": {
-    "llm_calls": 2,
+    "llm_calls": 6,
     "tool_calls": 0,
     "timeout_s": 90
    },
@@ -83,151 +84,50 @@ export const opsCatalog = {
    "recent": null
   },
   {
-   "name": "scout",
-   "label": "발굴",
-   "description": "각도별 검색 → 후보 8×count → 숫자 필터 + 배치 주제 선별 → 2.5×count",
+   "name": "catalog-retriever",
+   "label": "DB 거르기",
+   "description": "요청 분야를 DB 분야에 맞추고 플랫폼 · 팔로워 · 최근 활동을 SQL로 거른 뒤 후보 묶음과 재사용할 판정을 읽는다 (코드 · LLM 0)",
+   "group": "검색",
    "capabilities": [
-    "discover.candidates"
+    "retrieve.catalog"
    ],
    "status": "active",
-   "tools": [
-    "web_search",
-    "youtube_search",
-    "fetch_url",
-    "youtube_channel",
-    "instagram_profile"
-   ],
-   "uses_llm": true,
-   "tool_choice": "LLM",
-   "budget": {
-    "llm_calls": 20,
-    "tool_calls": 400,
-    "timeout_s": 300
-   },
-   "slo": {
-    "p95_s": 90,
-    "success_rate": 0.95
-   },
-   "version": "1.0.0",
-   "in_template": true,
-   "recent": {
-    "runs": 1,
-    "ok": 1,
-    "partial": 0,
-    "failed": 0,
-    "success_rate": 1.0,
-    "p95_ms": 21027.0,
-    "avg_llm_calls": 0.0,
-    "avg_tool_calls": 10.0,
-    "usd": 0.0,
-    "avg_usd": 0.0,
-    "missions": 1
-   }
-  },
-  {
-   "name": "web-researcher",
-   "label": "웹 조사",
-   "description": "이름 확정 · 나무위키 · 인터뷰 등 인물 배경 (절차 고정 · LLM 은 뽑아 적기만). 다른 플랫폼 계정은 account-linker",
-   "capabilities": [
-    "research.web"
-   ],
-   "status": "active",
-   "tools": [
-    "web_search",
-    "fetch_url",
-    "instagram_profile",
-    "youtube_channel"
-   ],
-   "uses_llm": true,
-   "tool_choice": "코드 (고정 절차)",
-   "budget": {
-    "llm_calls": 3,
-    "tool_calls": 12,
-    "timeout_s": 90
-   },
-   "slo": {
-    "p95_s": 40,
-    "success_rate": 0.9
-   },
-   "version": "1.0.0",
-   "in_template": true,
-   "recent": {
-    "runs": 7,
-    "ok": 7,
-    "partial": 0,
-    "failed": 0,
-    "success_rate": 1.0,
-    "p95_ms": 4158.0,
-    "avg_llm_calls": 0.0,
-    "avg_tool_calls": 2.0,
-    "usd": 0.0,
-    "avg_usd": 0.0,
-    "missions": 1
-   }
-  },
-  {
-   "name": "account-linker",
-   "label": "계정 연결",
-   "description": "다른 플랫폼 계정 찾기 — LLM 이 검색 · 글 읽기 · API 조회를 골라 쓰고, 같은 사람인지 내용으로 판단",
-   "capabilities": [
-    "research.link"
-   ],
-   "status": "active",
-   "tools": [
-    "search_mentions",
-    "read_passages",
-    "lookup_instagram",
-    "lookup_youtube",
-    "find_youtube_channel"
-   ],
-   "uses_llm": true,
-   "tool_choice": "LLM",
-   "budget": {
-    "llm_calls": 9,
-    "tool_calls": 14,
-    "timeout_s": 90
-   },
-   "slo": {
-    "p95_s": 45,
-    "success_rate": 0.9
-   },
-   "version": "1.0.0",
-   "in_template": true,
-   "recent": {
-    "runs": 7,
-    "ok": 7,
-    "partial": 0,
-    "failed": 0,
-    "success_rate": 1.0,
-    "p95_ms": 6244.0,
-    "avg_llm_calls": 0.0,
-    "avg_tool_calls": 1.0,
-    "usd": 0.0,
-    "avg_usd": 0.0,
-    "missions": 1
-   }
-  },
-  {
-   "name": "yt-researcher",
-   "label": "유튜브",
-   "description": "채널 · 최근 영상 40 · 참여율 · 기간별 추세 · 유료 광고 표시 — 3유닛 경로, 전부 코드",
-   "capabilities": [
-    "research.youtube"
-   ],
-   "status": "active",
-   "tools": [
-    "youtube_channel"
-   ],
+   "tools": [],
    "uses_llm": false,
    "tool_choice": "코드",
    "budget": {
     "llm_calls": 0,
-    "tool_calls": 2,
-    "timeout_s": 25
+    "tool_calls": 0,
+    "timeout_s": 30
    },
    "slo": {
-    "p95_s": 8,
-    "success_rate": 0.95
+    "p95_s": 3,
+    "success_rate": 0.99
+   },
+   "version": "1.0.0",
+   "in_template": false,
+   "recent": null
+  },
+  {
+   "name": "profiler",
+   "label": "정리",
+   "description": "측정식 조건 계산(코드) · 동일인물 확신도 반영 · 플랫폼 카드 정리",
+   "group": "검색",
+   "capabilities": [
+    "profile.assemble"
+   ],
+   "status": "active",
+   "tools": [],
+   "uses_llm": false,
+   "tool_choice": "코드",
+   "budget": {
+    "llm_calls": 0,
+    "tool_calls": 0,
+    "timeout_s": 10
+   },
+   "slo": {
+    "p95_s": 1,
+    "success_rate": 0.99
    },
    "version": "1.0.0",
    "in_template": true,
@@ -236,50 +136,12 @@ export const opsCatalog = {
     "ok": 8,
     "partial": 0,
     "failed": 0,
-    "success_rate": 1.0,
-    "p95_ms": 44.0,
-    "avg_llm_calls": 0.0,
-    "avg_tool_calls": 1.0,
-    "usd": 0.0,
-    "avg_usd": 0.0,
-    "missions": 1
-   }
-  },
-  {
-   "name": "ig-researcher",
-   "label": "인스타",
-   "description": "프로필 · 최근 게시물 25 · 참여율 · 기간별 추세 · 협찬 표시 — 전부 코드. 개인 계정은 limited",
-   "capabilities": [
-    "research.instagram"
-   ],
-   "status": "active",
-   "tools": [
-    "instagram_profile"
-   ],
-   "uses_llm": false,
-   "tool_choice": "코드",
-   "budget": {
-    "llm_calls": 0,
-    "tool_calls": 2,
-    "timeout_s": 25
-   },
-   "slo": {
-    "p95_s": 12,
-    "success_rate": 0.9
-   },
-   "version": "1.0.0",
-   "in_template": true,
-   "recent": {
-    "runs": 1,
-    "ok": 0,
-    "partial": 1,
-    "failed": 0,
-    "success_rate": 0.0,
-    "p95_ms": 420.0,
-    "avg_llm_calls": 0.0,
-    "avg_tool_calls": 2.0,
-    "usd": 0.0,
-    "avg_usd": 0.0,
+    "success_rate": 1,
+    "p95_ms": 6,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 0,
+    "usd": 0,
+    "avg_usd": 0,
     "missions": 1
    }
   },
@@ -287,6 +149,7 @@ export const opsCatalog = {
    "name": "verifier",
    "label": "조건 판정",
    "description": "판단 조건을 근거 링크로 판정 · 기준표 조건은 연결된 계정 글까지 읽고 문턱은 코드가 적용. 측정식 조건은 profiler",
+   "group": "검색",
    "capabilities": [
     "verify.conditions"
    ],
@@ -316,21 +179,287 @@ export const opsCatalog = {
     "ok": 8,
     "partial": 0,
     "failed": 0,
-    "success_rate": 1.0,
-    "p95_ms": 11813.0,
-    "avg_llm_calls": 0.0,
+    "success_rate": 1,
+    "p95_ms": 11813,
+    "avg_llm_calls": 0,
     "avg_tool_calls": 1.25,
-    "usd": 0.0,
-    "avg_usd": 0.0,
+    "usd": 0,
+    "avg_usd": 0,
     "missions": 1
    }
   },
   {
-   "name": "profiler",
-   "label": "정리",
-   "description": "측정식 조건 계산(코드) · 동일인물 확신도 반영 · 플랫폼 카드 정리",
+   "name": "account-linker",
+   "label": "계정 연결",
+   "description": "다른 플랫폼 계정 찾기 — LLM 이 검색 · 글 읽기 · API 조회를 골라 쓰고, 같은 사람인지 내용으로 판단",
+   "group": "검색",
    "capabilities": [
-    "profile.assemble"
+    "research.link"
+   ],
+   "status": "active",
+   "tools": [
+    "search_mentions",
+    "read_passages",
+    "lookup_instagram",
+    "lookup_youtube",
+    "find_youtube_channel"
+   ],
+   "uses_llm": true,
+   "tool_choice": "LLM",
+   "budget": {
+    "llm_calls": 9,
+    "tool_calls": 14,
+    "timeout_s": 90
+   },
+   "slo": {
+    "p95_s": 45,
+    "success_rate": 0.9
+   },
+   "version": "1.0.0",
+   "in_template": true,
+   "recent": {
+    "runs": 7,
+    "ok": 7,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1,
+    "p95_ms": 6244,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 1,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 1
+   }
+  },
+  {
+   "name": "scout",
+   "label": "발굴",
+   "description": "각도별 검색 → 후보 8×count → 숫자 필터 + 배치 주제 선별 → 2.5×count",
+   "group": "검색 · 모자랄 때",
+   "capabilities": [
+    "discover.candidates"
+   ],
+   "status": "active",
+   "tools": [
+    "web_search",
+    "youtube_search",
+    "fetch_url",
+    "youtube_channel",
+    "instagram_profile"
+   ],
+   "uses_llm": true,
+   "tool_choice": "LLM",
+   "budget": {
+    "llm_calls": 20,
+    "tool_calls": 400,
+    "timeout_s": 300
+   },
+   "slo": {
+    "p95_s": 90,
+    "success_rate": 0.95
+   },
+   "version": "1.0.0",
+   "in_template": true,
+   "recent": {
+    "runs": 1,
+    "ok": 1,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1,
+    "p95_ms": 21027,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 10,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 1
+   }
+  },
+  {
+   "name": "web-researcher",
+   "label": "웹 조사",
+   "description": "이름 확정 · 나무위키 · 인터뷰 등 인물 배경 (절차 고정 · LLM 은 뽑아 적기만). 다른 플랫폼 계정은 account-linker",
+   "group": "검색 · 모자랄 때",
+   "capabilities": [
+    "research.web"
+   ],
+   "status": "active",
+   "tools": [
+    "web_search",
+    "fetch_url",
+    "instagram_profile",
+    "youtube_channel"
+   ],
+   "uses_llm": true,
+   "tool_choice": "코드 (고정 절차)",
+   "budget": {
+    "llm_calls": 3,
+    "tool_calls": 12,
+    "timeout_s": 90
+   },
+   "slo": {
+    "p95_s": 40,
+    "success_rate": 0.9
+   },
+   "version": "1.0.0",
+   "in_template": true,
+   "recent": {
+    "runs": 7,
+    "ok": 7,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1,
+    "p95_ms": 4158,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 2,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 1
+   }
+  },
+  {
+   "name": "yt-researcher",
+   "label": "유튜브",
+   "description": "채널 · 최근 영상 40 · 참여율 · 기간별 추세 · 유료 광고 표시 — 3유닛 경로, 전부 코드",
+   "group": "검색 · 모자랄 때",
+   "capabilities": [
+    "research.youtube"
+   ],
+   "status": "active",
+   "tools": [
+    "youtube_channel"
+   ],
+   "uses_llm": false,
+   "tool_choice": "코드",
+   "budget": {
+    "llm_calls": 0,
+    "tool_calls": 2,
+    "timeout_s": 25
+   },
+   "slo": {
+    "p95_s": 8,
+    "success_rate": 0.95
+   },
+   "version": "1.0.0",
+   "in_template": true,
+   "recent": {
+    "runs": 8,
+    "ok": 8,
+    "partial": 0,
+    "failed": 0,
+    "success_rate": 1,
+    "p95_ms": 44,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 1,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 1
+   }
+  },
+  {
+   "name": "ig-researcher",
+   "label": "인스타",
+   "description": "프로필 · 최근 게시물 25 · 참여율 · 기간별 추세 · 협찬 표시 — 전부 코드. 개인 계정은 limited",
+   "group": "검색 · 모자랄 때",
+   "capabilities": [
+    "research.instagram"
+   ],
+   "status": "active",
+   "tools": [
+    "instagram_profile"
+   ],
+   "uses_llm": false,
+   "tool_choice": "코드",
+   "budget": {
+    "llm_calls": 0,
+    "tool_calls": 2,
+    "timeout_s": 25
+   },
+   "slo": {
+    "p95_s": 12,
+    "success_rate": 0.9
+   },
+   "version": "1.0.0",
+   "in_template": true,
+   "recent": {
+    "runs": 1,
+    "ok": 0,
+    "partial": 1,
+    "failed": 0,
+    "success_rate": 0,
+    "p95_ms": 420,
+    "avg_llm_calls": 0,
+    "avg_tool_calls": 2,
+    "usd": 0,
+    "avg_usd": 0,
+    "missions": 1
+   }
+  },
+  {
+   "name": "seed-harvester",
+   "label": "씨앗 줍기",
+   "description": "분야 낱말로 소개글 속 인스타 계정 · 유튜브 채널을 모은다. 쓸 검색어가 모자라면 해시태그 · AI로 낱말을 늘린다",
+   "group": "적재",
+   "capabilities": [
+    "seed.accounts"
+   ],
+   "status": "active",
+   "tools": [
+    "find_instagram_accounts",
+    "youtube_search"
+   ],
+   "uses_llm": true,
+   "tool_choice": "코드 (AI는 낱말 넓히기만)",
+   "budget": {
+    "llm_calls": 1,
+    "tool_calls": 6,
+    "timeout_s": 120
+   },
+   "slo": {
+    "p95_s": 60,
+    "success_rate": 0.95
+   },
+   "version": "1.0.0",
+   "in_template": false,
+   "recent": null
+  },
+  {
+   "name": "collector",
+   "label": "수집",
+   "description": "계정 하나의 프로필과 최근 활동을 가져온다 — 인스타 게시물 25 · 유튜브 영상 40 · 블로그 글 10 (코드 · LLM 0)",
+   "group": "적재",
+   "capabilities": [
+    "collect.instagram",
+    "collect.youtube",
+    "collect.blog"
+   ],
+   "status": "active",
+   "tools": [
+    "instagram_profile",
+    "youtube_channel",
+    "naver_blog_posts"
+   ],
+   "uses_llm": false,
+   "tool_choice": "코드",
+   "budget": {
+    "llm_calls": 0,
+    "tool_calls": 2,
+    "timeout_s": 60
+   },
+   "slo": {
+    "p95_s": 10,
+    "success_rate": 0.95
+   },
+   "version": "1.0.0",
+   "in_template": false,
+   "recent": null
+  },
+  {
+   "name": "extractor",
+   "label": "뽑기",
+   "description": "수집한 계정의 소개 · 게시물에서 다른 플랫폼 계정(링크) · 협찬 표시와 브랜드 · 본인이 공개한 연락처를 뽑는다 (코드 · LLM 0)",
+   "group": "적재",
+   "capabilities": [
+    "extract.account"
    ],
    "status": "active",
    "tools": [],
@@ -346,25 +475,66 @@ export const opsCatalog = {
     "success_rate": 0.99
    },
    "version": "1.0.0",
-   "in_template": true,
-   "recent": {
-    "runs": 8,
-    "ok": 8,
-    "partial": 0,
-    "failed": 0,
-    "success_rate": 1.0,
-    "p95_ms": 6.0,
-    "avg_llm_calls": 0.0,
-    "avg_tool_calls": 0.0,
-    "usd": 0.0,
-    "avg_usd": 0.0,
-    "missions": 1
-   }
+   "in_template": false,
+   "recent": null
+  },
+  {
+   "name": "classifier",
+   "label": "분류",
+   "description": "소개 · 최근 활동을 보고 분야 태그(분야 목록 안에서) · 계정 종류 · 한 줄 요약을 붙인다 — 20명씩 AI 1회",
+   "group": "적재",
+   "capabilities": [
+    "classify.profile"
+   ],
+   "status": "active",
+   "tools": [],
+   "uses_llm": true,
+   "tool_choice": "툴 없음",
+   "budget": {
+    "llm_calls": 1,
+    "tool_calls": 0,
+    "timeout_s": 120
+   },
+   "slo": {
+    "p95_s": 40,
+    "success_rate": 0.95
+   },
+   "version": "1.0.0",
+   "in_template": false,
+   "recent": null
+  },
+  {
+   "name": "web-enricher",
+   "label": "웹 보강",
+   "description": "개인 크리에이터만 — 이름 · 아이디로 기사 · 인터뷰를 찾아 본인 확인 등급을 붙이고, 본인 계정에 인스타 · 연락처가 없으면 검색 결과에서 찾는다 (코드 · LLM 0)",
+   "group": "적재",
+   "capabilities": [
+    "enrich.person"
+   ],
+   "status": "active",
+   "tools": [
+    "web_search"
+   ],
+   "uses_llm": false,
+   "tool_choice": "코드",
+   "budget": {
+    "llm_calls": 0,
+    "tool_calls": 5,
+    "timeout_s": 90
+   },
+   "slo": {
+    "p95_s": 30,
+    "success_rate": 0.95
+   },
+   "version": "1.0.0",
+   "in_template": false,
+   "recent": null
   },
   {
    "name": "campaign-planner",
-   "label": "campaign-planner",
+   "label": "캠페인 기획",
    "description": "향후 슬롯 — celeb-outreach 캠페인 기획",
+   "group": "다음 단계(꺼짐)",
    "capabilities": [
     "plan.campaign"
    ],
@@ -384,8 +554,9 @@ export const opsCatalog = {
   },
   {
    "name": "dm-writer",
-   "label": "dm-writer",
+   "label": "DM 작성",
    "description": "향후 슬롯 — 제안 DM 작성 (발송은 사람 승인)",
+   "group": "다음 단계(꺼짐)",
    "capabilities": [
     "write.dm"
    ],
@@ -405,8 +576,9 @@ export const opsCatalog = {
   },
   {
    "name": "qc",
-   "label": "qc",
+   "label": "검수",
    "description": "향후 슬롯 — 문구 · 정책 검수",
+   "group": "다음 단계(꺼짐)",
    "capabilities": [
     "review.quality"
    ],
@@ -426,8 +598,9 @@ export const opsCatalog = {
   },
   {
    "name": "reply-handler",
-   "label": "reply-handler",
+   "label": "답장 대응",
    "description": "향후 슬롯 — 응답 분류 · 재기획",
+   "group": "다음 단계(꺼짐)",
    "capabilities": [
     "handle.reply"
    ],
@@ -453,12 +626,24 @@ export const opsCatalog = {
     "label": "조건 → 실행 계획"
    },
    {
+    "id": "retrieve",
+    "label": "DB에서 거르기"
+   },
+   {
+    "id": "measure",
+    "label": "코드로 재기"
+   },
+   {
+    "id": "research_db",
+    "label": "DB 후보 판정"
+   },
+   {
     "id": "dispatch_scout",
-    "label": "발굴 맡기기"
+    "label": "실시간 발굴"
    },
    {
     "id": "research",
-    "label": "후보마다 조사"
+    "label": "실시간 후보 조사"
    },
    {
     "id": "review",
@@ -470,7 +655,7 @@ export const opsCatalog = {
    },
    {
     "id": "finalize",
-    "label": "결과 정리"
+    "label": "재확인 · 저장"
    }
   ],
   "edges": [
@@ -482,7 +667,31 @@ export const opsCatalog = {
    },
    {
     "from": "plan_mission",
+    "to": "retrieve",
+    "kind": "normal",
+    "label": ""
+   },
+   {
+    "from": "retrieve",
+    "to": "measure",
+    "kind": "normal",
+    "label": ""
+   },
+   {
+    "from": "measure",
+    "to": "research_db",
+    "kind": "fanout",
+    "label": "DB 후보마다 Send"
+   },
+   {
+    "from": "measure",
     "to": "dispatch_scout",
+    "kind": "normal",
+    "label": "DB 후보 0명"
+   },
+   {
+    "from": "research_db",
+    "to": "review",
     "kind": "normal",
     "label": ""
    },
@@ -490,7 +699,7 @@ export const opsCatalog = {
     "from": "dispatch_scout",
     "to": "research",
     "kind": "fanout",
-    "label": "후보마다 Send"
+    "label": "새 후보마다 Send"
    },
    {
     "from": "research",
@@ -502,7 +711,7 @@ export const opsCatalog = {
     "from": "review",
     "to": "research",
     "kind": "loop",
-    "label": "근거 부족 → 그 조건만 재조사"
+    "label": "근거 부족 → 그 조건만 재조사(실시간 후보만)"
    },
    {
     "from": "review",
@@ -514,7 +723,7 @@ export const opsCatalog = {
     "from": "judge",
     "to": "dispatch_scout",
     "kind": "loop",
-    "label": "인원 부족 → 재발굴"
+    "label": "인원 부족 → 실시간으로 채움"
    },
    {
     "from": "judge",

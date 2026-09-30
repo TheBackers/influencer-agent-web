@@ -11,15 +11,14 @@ import DossierTable, { type SortKey } from "@/components/v2/dossier-table";
 import DossierDrawer from "@/components/v2/dossier-drawer";
 import type { FeedbackInput } from "@/components/v2/feedback-bar";
 import { compilePlan, followMission, getMission, patchCondition, revisePlan, sendFeedback, startMission, USE_MOCK } from "@/lib/api-v2";
-import { DB_STEPS, STEP_TEMPLATE } from "@/mocks/mission";
+import { DB_STEPS } from "@/mocks/mission";
 import { unconfirmed } from "@/components/v2/ui";
 import { DbResultSummary, Shortfall, UnconfirmedNote } from "@/components/catalog/search-db";
 import { patchTopic } from "@/lib/api-catalog";
-import type { MissionResultDb } from "@/types/catalog";
 import type { CompiledPlan, ConditionPatch, Dossier, MissionResult, MissionStep } from "@/types/v2";
 
-/** 진행 단계 틀 — 목업은 v3 DB 검색 단계, 지금 실시간 검색(v2)은 기존 단계. 3단계에 DB_STEPS 하나로 합친다 */
-const STEPS0 = USE_MOCK ? DB_STEPS : STEP_TEMPLATE;
+/** 진행 단계 틀 — DB 먼저 · 모자라면 실시간(D42). 백엔드 progress.py STEPS 와 같은 키 */
+const STEPS0 = DB_STEPS;
 const isUnconfirmed = (d: Dossier) => unconfirmed(d).n > 0;
 
 type Phase = "idle" | "compiling" | "review" | "running" | "done" | "error";
@@ -133,8 +132,8 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** DB 검색 요약 — 결과에 있을 때만(목업 · 3단계). 있으면 필수 조건 확인 못 한 사람을 따로 보인다(D36) */
-  const db = (result as MissionResultDb | null)?.catalog;
+  /** DB 검색 요약(D42) — 있으면 필수 조건 확인 못 한 사람을 따로 보인다(D36). 예전 결과(저장된 v2)에는 없다 */
+  const db = result?.catalog;
   const list = useMemo(() => {
     if (!result) return [];
     const pool = db ? result.dossiers.filter((d) => !isUnconfirmed(d)) : result.dossiers;
@@ -184,7 +183,7 @@ export default function SearchPage() {
         <div className="flex flex-col gap-3 pt-2">
           <ResultsToolbar result={result} list={list} />
           {db && <DbResultSummary info={db} />}
-          {db?.shortfall && <Shortfall sf={db.shortfall} onAddKeywords={async (topic, words) => { await patchTopic(topic, { add_keywords: words }); }} />}
+          {db?.shortfall && <Shortfall sf={db.shortfall} liveRounds={db.live_rounds} onAddKeywords={async (topic, words) => { await patchTopic(topic, { add_keywords: words }); }} />}
           <CoverageBand result={result} />
           <DossierTable list={list} sort={sort} onSort={setSort} onOpen={setOpen} selected={open?.handle} />
           {unconfirmedList.length > 0 && (

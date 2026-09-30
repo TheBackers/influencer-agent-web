@@ -55,14 +55,18 @@ export const usd = (v: number | null | undefined) =>
 export const secs = (ms: number | null | undefined) =>
   ms == null ? "—" : ms >= 60000 ? `${Math.floor(ms / 60000)}분 ${Math.round((ms % 60000) / 1000)}초` : ms >= 1000 ? `${(ms / 1000).toFixed(1)}초` : `${Math.round(ms)}ms`;
 
-// ── 실행 그래프 ──────────────────────────────────────────────────────────────
+// ── 실행 그래프 (설계서 10장 · D42) ─────────────────────────────────────────
+// 윗줄 = DB 쪽(늘 먼저) · 아랫줄 = 실시간 쪽(모자랄 때만). 점선 상자 안 칩 = 후보 한 명마다 부르는 워커(DB 후보도 같은 워커)
 const BOX: Record<string, { x: number; y: number; w: number; h: number }> = {
-  plan_mission: { x: 76, y: 40, w: 150, h: 70 },
-  dispatch_scout: { x: 256, y: 40, w: 150, h: 70 },
-  research: { x: 446, y: 16, w: 498, h: 118 },
-  review: { x: 774, y: 178, w: 170, h: 70 },
-  judge: { x: 566, y: 178, w: 170, h: 70 },
-  finalize: { x: 358, y: 178, w: 170, h: 70 },
+  plan_mission: { x: 56, y: 22, w: 128, h: 62 },
+  retrieve: { x: 200, y: 22, w: 118, h: 62 },
+  measure: { x: 334, y: 22, w: 118, h: 62 },
+  research_db: { x: 468, y: 22, w: 150, h: 62 },
+  review: { x: 656, y: 22, w: 130, h: 62 },
+  judge: { x: 806, y: 22, w: 130, h: 62 },
+  finalize: { x: 806, y: 124, w: 130, h: 62 },
+  dispatch_scout: { x: 40, y: 250, w: 150, h: 62 },
+  research: { x: 222, y: 226, w: 564, h: 112 },
 };
 
 function nodeColors(status: string, live: boolean) {
@@ -84,13 +88,17 @@ export function RunGraph({ nodes, edges, steps, live = true, picked, onPick }: {
   const e = (a: string, b: string) => edges.find((x) => x.from === a && x.to === b);
   const loopR = e("review", "research");
   const loopJ = e("judge", "dispatch_scout");
+  const fanDb = e("measure", "research_db");
+  const toScout = e("measure", "dispatch_scout");
   const fan = e("dispatch_scout", "research");
-  const hot = (x?: OpsGraphEdge) => live && x?.taken;
-  const chipW = 74, gap = 5, x0 = 458;
+  const hot = (x?: OpsGraphEdge) => live && !!x?.taken;
+  const stroke = (x?: OpsGraphEdge) => (hot(x) ? "var(--accent)" : "var(--border-strong)");
+  const mk = (x?: OpsGraphEdge) => `url(#ops-${hot(x) ? "a1" : "a0"})`;
+  const chipW = 74, gap = 5, x0 = 236;
 
   return (
     <div className="relative overflow-x-auto">
-      <svg viewBox="0 0 960 268" role="img" aria-label="총괄 그래프: 실행 계획, 발굴, 후보마다 조사, 근거 검토, 통과 탈락, 결과 정리. 조사 안에는 웹 조사, 계정 연결, 유튜브, 인스타, 조건 판정, 정리 단계가 있다"
+      <svg viewBox="0 0 960 350" role="img" aria-label="총괄 그래프: 윗줄은 DB 쪽으로 실행 계획, DB에서 거르기, 코드로 재기, DB 후보 판정, 근거 검토, 통과 탈락, 재확인 저장. 아랫줄은 모자랄 때만 도는 실시간 발굴과 실시간 후보 조사. 조사 상자 안에는 후보마다 부르는 워커 단계가 있다"
         className="block w-full min-w-[880px] h-auto" style={{ fontFamily: "inherit" }}>
         <defs>
           {[["a0", "var(--border-strong)"], ["a1", "var(--accent)"]].map(([id, c]) => (
@@ -99,32 +107,44 @@ export function RunGraph({ nodes, edges, steps, live = true, picked, onPick }: {
             </marker>
           ))}
         </defs>
+        <text x="56" y="14" fontSize="10.5" fontWeight="600" fill="var(--dim)">DB 쪽 — 늘 먼저</text>
+        <text x="40" y="332" fontSize="10.5" fontWeight="600" fill="var(--dim)">실시간 쪽 — 모자랄 때만</text>
         {/* START / END */}
-        <circle cx="36" cy="75" r="20" fill="var(--soft)" stroke="var(--border-strong)" />
-        <text x="36" y="79" textAnchor="middle" fontSize="10.5" fontWeight="600" fill="var(--dim)">시작</text>
-        <circle cx="310" cy="213" r="20" fill="var(--soft)" stroke="var(--border-strong)" />
-        <text x="310" y="217" textAnchor="middle" fontSize="10.5" fontWeight="600" fill="var(--dim)">끝</text>
+        <circle cx="26" cy="53" r="16" fill="var(--soft)" stroke="var(--border-strong)" />
+        <text x="26" y="57" textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--dim)">시작</text>
+        <circle cx="871" cy="214" r="15" fill="var(--soft)" stroke="var(--border-strong)" />
+        <text x="871" y="218" textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--dim)">끝</text>
 
         {/* 기본 엣지 */}
         <g stroke="var(--border-strong)" strokeWidth="1.5" fill="none">
-          <line x1="56" y1="75" x2="74" y2="75" markerEnd="url(#ops-a0)" />
-          <line x1="226" y1="75" x2="254" y2="75" markerEnd="url(#ops-a0)" />
-          <line x1="834" y1="134" x2="834" y2="176" markerEnd="url(#ops-a0)" />
-          <line x1="774" y1="213" x2="738" y2="213" markerEnd="url(#ops-a0)" />
-          <line x1="566" y1="213" x2="530" y2="213" markerEnd="url(#ops-a0)" />
-          <line x1="358" y1="213" x2="332" y2="213" markerEnd="url(#ops-a0)" />
+          <line x1="42" y1="53" x2="54" y2="53" markerEnd="url(#ops-a0)" />
+          <line x1="184" y1="53" x2="198" y2="53" markerEnd="url(#ops-a0)" />
+          <line x1="318" y1="53" x2="332" y2="53" markerEnd="url(#ops-a0)" />
+          <line x1="618" y1="53" x2="654" y2="53" markerEnd="url(#ops-a0)" />
+          <line x1="786" y1="53" x2="804" y2="53" markerEnd="url(#ops-a0)" />
+          <line x1="871" y1="84" x2="871" y2="122" markerEnd="url(#ops-a0)" />
+          <line x1="871" y1="186" x2="871" y2="197" markerEnd="url(#ops-a0)" />
+          <line x1="740" y1="226" x2="740" y2="86" markerEnd="url(#ops-a0)" />
         </g>
-        <line x1="406" y1="75" x2="444" y2="75" stroke={hot(fan) ? "var(--accent)" : "var(--border-strong)"} strokeWidth="1.8" markerEnd={`url(#ops-${hot(fan) ? "a1" : "a0"})`} />
-        {live && fan && <text x="425" y="67" textAnchor="middle" fontSize="10" fill="var(--accent)">×{fan.count}</text>}
-        <text x="842" y="160" fontSize="10" fill="var(--dim)">팬인</text>
+        <text x="746" y="200" fontSize="10" fill="var(--dim)">팬인</text>
+        {/* DB 후보마다 Send */}
+        <line x1="452" y1="53" x2="466" y2="53" stroke={stroke(fanDb)} strokeWidth="1.8" markerEnd={mk(fanDb)} />
+        {live && fanDb && fanDb.count > 0 && <text x="543" y="98" textAnchor="middle" fontSize="10" fill="var(--accent)">DB 후보 ×{fanDb.count}</text>}
+        {/* DB 후보 0명 → 실시간 */}
+        <path d="M393 84 L393 206 L115 206 L115 248" fill="none" stroke={stroke(toScout)} strokeWidth={hot(toScout) ? 2 : 1.3}
+          strokeDasharray={hot(toScout) ? undefined : "4 3"} markerEnd={mk(toScout)} />
+        <text x="400" y="150" fontSize="10" fill={hot(toScout) ? "var(--accent)" : "var(--dim)"}>DB 후보 0명</text>
+        {/* 새 후보마다 Send */}
+        <line x1="190" y1="281" x2="220" y2="281" stroke={stroke(fan)} strokeWidth="1.8" markerEnd={mk(fan)} />
+        {live && fan && fan.count > 0 && <text x="205" y="273" textAnchor="middle" fontSize="10" fill="var(--accent)">×{fan.count}</text>}
 
         {/* 갈림길 — 이번 검색에서 탔으면 파란 실선 + 횟수 */}
-        <path d="M914 178 L914 134" fill="none" stroke={hot(loopR) ? "var(--accent)" : "var(--border-strong)"} strokeWidth={hot(loopR) ? 2 : 1.3}
-          strokeDasharray={hot(loopR) ? undefined : "4 3"} markerEnd={`url(#ops-${hot(loopR) ? "a1" : "a0"})`} />
-        <text x="920" y="152" fontSize="10" fill={hot(loopR) ? "var(--accent)" : "var(--dim)"}>재조사{live ? ` ${loopR?.count ?? 0}` : ""}</text>
-        <path d="M600 178 L600 150 L331 150 L331 112" fill="none" stroke={hot(loopJ) ? "var(--accent)" : "var(--border-strong)"} strokeWidth={hot(loopJ) ? 2 : 1.3}
-          strokeDasharray={hot(loopJ) ? undefined : "4 3"} markerEnd={`url(#ops-${hot(loopJ) ? "a1" : "a0"})`} />
-        <text x="340" y="144" fontSize="10" fill={hot(loopJ) ? "var(--accent)" : "var(--dim)"}>인원 부족 → 재발굴{live ? ` ${loopJ?.count ?? 0}` : ""}</text>
+        <path d="M700 86 L700 224" fill="none" stroke={stroke(loopR)} strokeWidth={hot(loopR) ? 2 : 1.3}
+          strokeDasharray={hot(loopR) ? undefined : "4 3"} markerEnd={mk(loopR)} />
+        <text x="694" y="150" textAnchor="end" fontSize="10" fill={hot(loopR) ? "var(--accent)" : "var(--dim)"}>재조사(실시간 후보만){live ? ` ${loopR?.count ?? 0}` : ""}</text>
+        <path d="M826 84 L826 104 L18 104 L18 281 L38 281" fill="none" stroke={stroke(loopJ)} strokeWidth={hot(loopJ) ? 2 : 1.3}
+          strokeDasharray={hot(loopJ) ? undefined : "4 3"} markerEnd={mk(loopJ)} />
+        <text x="470" y="118" fontSize="10" fill={hot(loopJ) ? "var(--accent)" : "var(--dim)"}>인원 부족 → 실시간으로 채움{live ? ` ${loopJ?.count ?? 0}` : ""}</text>
 
         {/* 노드 */}
         {Object.entries(BOX).map(([id, b]) => {
@@ -139,14 +159,14 @@ export function RunGraph({ nodes, edges, steps, live = true, picked, onPick }: {
               <title>{`${n.label} (${id})${n.detail ? " — " + n.detail : ""}`}</title>
               <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="8" fill={c.fill} stroke={sel ? "var(--accent)" : c.stroke}
                 strokeWidth={sel ? 2.4 : live && n.status !== "waiting" ? 1.8 : 1.2} strokeDasharray={isResearch ? "6 4" : undefined} />
-              <text x={b.x + 12} y={b.y + 20} fontSize="12.5" fontWeight="700" fill={c.ink}>{n.label}</text>
-              <text x={b.x + 12} y={b.y + 34} fontSize="9.5" fill="var(--dim)" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>{id}</text>
+              <text x={b.x + 10} y={b.y + 19} fontSize="12" fontWeight="700" fill={c.ink}>{isResearch ? `${n.label} — 후보마다 부르는 워커(DB 후보도 같은 워커)` : n.label}</text>
+              <text x={b.x + 10} y={b.y + 33} fontSize="9.5" fill="var(--dim)" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>{id}</text>
               {live && (
                 <>
-                  <text x={b.x + b.w - 10} y={b.y + 20} textAnchor="end" fontSize="11" fontWeight="600" fill={statusStyle(n.status).fg}>
+                  <text x={b.x + b.w - 8} y={b.y + 33} textAnchor="end" fontSize="10.5" fontWeight="600" fill={statusStyle(n.status).fg}>
                     {n.status === "waiting" ? "안 돎" : `${statusStyle(n.status).label}${n.runs > 1 ? ` ×${n.runs}` : ""}`}
                   </text>
-                  {!isResearch && <text x={b.x + 12} y={b.y + 54} fontSize="10" fill="var(--ink-2)">{clip(n.detail, 26)}</text>}
+                  {!isResearch && <text x={b.x + 10} y={b.y + 51} fontSize="9.5" fill="var(--ink-2)">{clip(n.detail, Math.floor((b.w - 16) / 9.2))}</text>}
                 </>
               )}
             </g>
@@ -164,21 +184,21 @@ export function RunGraph({ nodes, edges, steps, live = true, picked, onPick }: {
               onClick={() => onPick?.(s.agent)} onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && onPick?.(s.agent)}
               style={{ cursor: onPick ? "pointer" : "default", outline: "none" }}>
               <title>{st ? `${s.label}: ${st.runs}회 · 정상 ${st.ok} · 부분 ${st.partial} · 실패 ${st.failed} · p95 ${secs(st.p95_ms)}` : s.label}</title>
-              <rect x={x} y={62} width={chipW} height={60} rx="6" fill="var(--panel)" stroke={sel ? "var(--accent)" : color} strokeWidth={sel ? 2.4 : 1.6} />
-              <text x={x + chipW / 2} y={80} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--foreground)">{i + 1} {s.label}</text>
+              <rect x={x} y={268} width={chipW} height={58} rx="6" fill="var(--panel)" stroke={sel ? "var(--accent)" : color} strokeWidth={sel ? 2.4 : 1.6} />
+              <text x={x + chipW / 2} y={286} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--foreground)">{i + 1} {s.label}</text>
               {live && st ? (
                 <>
-                  <text x={x + chipW / 2} y={96} textAnchor="middle" fontSize="10" fill="var(--ink-2)">{st.runs ? `${st.runs}회 · ${secs(st.p95_ms)}` : "안 돎"}</text>
-                  {(bad || part) && <text x={x + chipW / 2} y={111} textAnchor="middle" fontSize="10" fontWeight="600" fill={color}>{bad ? `실패 ${st.failed}` : `부분 ${st.partial}`}</text>}
+                  <text x={x + chipW / 2} y={302} textAnchor="middle" fontSize="10" fill="var(--ink-2)">{st.runs ? `${st.runs}회 · ${secs(st.p95_ms)}` : "안 돎"}</text>
+                  {(bad || part) && <text x={x + chipW / 2} y={317} textAnchor="middle" fontSize="10" fontWeight="600" fill={color}>{bad ? `실패 ${st.failed}` : `부분 ${st.partial}`}</text>}
                 </>
               ) : (
-                <text x={x + chipW / 2} y={98} textAnchor="middle" fontSize="9.5" fill="var(--dim)" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>{clip(s.agent, 14)}</text>
+                <text x={x + chipW / 2} y={304} textAnchor="middle" fontSize="9.5" fill="var(--dim)" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>{clip(s.agent.replace(/-researcher$/, ""), 12)}</text>
               )}
             </g>
           );
         })}
         {steps.length > 1 && steps.slice(0, -1).map((_, i) => (
-          <line key={i} x1={x0 + i * (chipW + gap) + chipW} y1={92} x2={x0 + (i + 1) * (chipW + gap)} y2={92} stroke="var(--border-strong)" strokeWidth="1" />
+          <line key={i} x1={x0 + i * (chipW + gap) + chipW} y1={297} x2={x0 + (i + 1) * (chipW + gap)} y2={297} stroke="var(--border-strong)" strokeWidth="1" />
         ))}
       </svg>
     </div>

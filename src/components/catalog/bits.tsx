@@ -86,9 +86,10 @@ export function ErrorLine({ msg }: { msg: string }) {
 }
 
 /** 막대 한 줄 — 값 / 상한 */
-export function Meter({ value, max, warnAt = 0.8 }: { value: number; max: number; warnAt?: number }) {
+/** 막대 — 쿼터 · 비용처럼 다 차면 나쁜 것은 빨강. goal 이면(신선도 · 목표 인원) 다 차면 초록 */
+export function Meter({ value, max, warnAt = 0.8, goal = false }: { value: number; max: number; warnAt?: number; goal?: boolean }) {
   const r = max > 0 ? Math.min(1, value / max) : 0;
-  const color = r >= 1 ? "var(--fail)" : r >= warnAt ? "var(--unknown)" : "var(--accent)";
+  const color = goal ? (r >= 1 ? "var(--pass)" : "var(--accent)") : r >= 1 ? "var(--fail)" : r >= warnAt ? "var(--unknown)" : "var(--accent)";
   return (
     <span aria-hidden className="block h-[5px] w-full rounded-full bg-[var(--soft)] overflow-hidden">
       <span className="block h-full rounded-full" style={{ width: `${r * 100}%`, background: color }} />

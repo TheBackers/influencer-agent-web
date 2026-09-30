@@ -3,7 +3,7 @@
 ## v3 인플루언서 DB 목업 (0929 · PRD 검사 결정 D23~D38 반영)
 
 설계 · PRD: https://claude.ai/artifact/R9U3Fi6JwLELCj4VSwComY — 2장(사용 흐름) · 8장(인플루언서 DB) · 14장(API). 목업 코드를 1단계 개발에 그대로 썼다(D22) — `NEXT_PUBLIC_USE_MOCK`을 끄면 인플루언서 목록 · 적재 현황이 실제 `/api/catalog/*`를 부른다(0929).
-Claude 앱에서 바로 보기: 아티팩트 [인플루언서 DB 목업](https://claude.ai/artifact/7bjcucgX39eF6chJg2ipaT) — 이 폴더의 웹 앱 전체(검색 · 목록 · 적재 현황 · AgentOps)를 목업 데이터로 묶은 것. 바로가기는 주소 끝 해시: `#search` · `#demo-done` · `#list` · `#person-p12` · `#missing` · `#ingest` · `#ops-agents` …
+Claude 앱에서 바로 보기: 아티팩트 [인플루언서 DB 목업](https://claude.ai/artifact/7bjcucgX39eF6chJg2ipaT) — 이 폴더의 웹 앱 전체(검색 · 목록 · 적재 현황 · AgentOps)를 목업 데이터로 묶은 것(0929 기준 — 적재 현황은 분야 고르기 · 자동 낱말 이전 화면). 바로가기는 주소 끝 해시: `#search` · `#demo-done` · `#list` · `#person-p12` · `#missing` · `#ingest` · `#ops-agents` …
 맥에서는 `npm run dev:mock` 뒤 아래 주소로 본다.
 
 | 주소 | 장면 |
@@ -14,9 +14,9 @@ Claude 앱에서 바로 보기: 아티팩트 [인플루언서 DB 목업](https:/
 | `/catalog?person=p12` | 인스타를 외부 글(검색 결과 요약)에서 찾은 사람 — 연락처 출처 '외부 글' · 계정 연결 0.8 |
 | `/catalog?contact=missing` | 연락처 못 찾음 — 관리자가 채울 목록(D24) |
 | `/catalog?hidden=1` | 숨긴 사람(D26) |
-| `/catalog/ingest` | 적재 현황 — 타일 · 분야(켜기/끄기 · 낱말 더하기 · 분야 추가) · 적재 그래프 단계 · 워커 10개 + shadow · 오류 · 실행 |
+| `/catalog/ingest` | 적재 현황 — 스위치 켜짐/꺼짐 · 타일 · 분야 고르기(후보 20개 체크 + 직접 입력 · D39) · 분야 표(자동 낱말 칩 · ✕ 빼기 · 꺼진 낱말과 이유 · D40) · 적재 그래프 5단계 · 워커 5개(D41) · 오류 · 실행 |
 
-- 검색 결과의 DB 칸은 결과에 `catalog` 요약이 있을 때만 보인다(`MissionResultDb` · 목업 `src/mocks/mission.ts`). 지금 실시간 검색(v2) 결과에는 없어서 그 화면은 그대로다.
+- 검색은 DB에서 먼저 찾고 모자라면 실시간으로 채운다(D42). 결과 위 DB 칸(`MissionResult.catalog` — DB에서 몇 명 · 실시간으로 몇 명 · 판정 재사용 · 모자람)과 진행 단계 9개(`DB_STEPS` = 백엔드 `progress.py`)는 목업 `src/mocks/mission.ts` 그대로다. `/?demo=done`: 패션 30명 → DB 26 + 실시간 3 · 1명 모자람 · 필수 조건 확인 못 함 1명. 결과 상세의 '인플루언서 DB에서 보기'는 목업에서 하루의옷장 · 소담코디 · 무드서랍만 이어진다(p31~p33).
 - 인플루언서 목록 · 적재 현황은 `src/lib/api-catalog.ts`만 부른다(`api-v2.ts`의 `http`를 같이 쓴다). 목업 모드에서 고친 정보 · 더한 분야는 그 탭 안에서만 남는다.
 - 타입 `src/types/catalog.ts` = 백엔드 `catalog` 스키마 · `/api/catalog/*` 응답(설계서 8 · 14장). 목업 `src/mocks/catalog.ts`의 인물은 모두 지어낸 예시(example.com).
 - 파일: `src/app/catalog/`(page · ingest · layout) · `src/components/catalog/`(bits · people-table · person-drawer · person-edit · ingest-parts · search-db — 검색 결과의 DB 칸).

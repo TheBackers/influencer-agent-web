@@ -160,7 +160,9 @@ export interface PlatformCard {
   uploads_90d?: number;
   uploads_prev_90d?: number;
   recent: MediaItem[];
-  source: "screen" | "researcher";
+  source: "screen" | "researcher" | "db";   // db = 인플루언서 DB에 적재된 정보 (D42)
+  /** 결과로 내기 전에 지표를 다시 조회했다 — DB 정보가 7일 넘었을 때 */
+  rechecked?: boolean;
   /** account-linker 가 이은 계정일 때 — 어떻게 찾았고 왜 같은 사람으로 봤나 */
   link?: AccountLink;
   needs_review?: boolean; // 확신도가 낮아 판정에 쓰지 않은 계정 (확인 필요)
@@ -226,8 +228,16 @@ export interface Dossier {
   sponsored_count: number;
   usage: { cost_usd: number; tool_calls: number; latency_s: number };
   run_id: string;
-  /** 필수 조건을 확인하지 못한 채 채워 넣은 후보 — '필수 조건 확인 못 함 — 조건, 조건' (백엔드 judge). 확실한 사람은 빈 값 */
+  /** 필수 조건을 확인하지 못한 후보 — '필수 조건 확인 못 함 — 조건, 조건' (백엔드 judge). 결과 인원에 세지 않고 따로 보인다(D36). 확실한 사람은 빈 값 */
   weak?: string;
+  /** 어디서 찾았나 — db: 인플루언서 DB · live: DB가 모자라 실시간으로 찾음(DB에 저장됨 · D42) */
+  origin?: "db" | "live";
+  /** 인플루언서 DB 인물 id — '인플루언서 DB에서 보기'(/catalog?person=id). 실시간으로 찾은 사람은 빈 값(다음 적재가 넣는다) */
+  person_id?: string;
+  /** DB 연락처 (인스타 DM · 이메일 · 링크) */
+  contacts?: { kind: string; value: string; label?: string | null; origin: string; source_url: string }[];
+  /** DB 정보가 모인 지 며칠 — 7일 넘으면 결과 전에 지표만 다시 조회한다 */
+  info_age_days?: number;
 }
 
 export interface ConditionCoverage {
@@ -264,6 +274,8 @@ export interface MissionResult {
   queries?: number;
   halt?: string;
   shortfall?: string;
+  /** DB 검색 요약 (3단계 · D42) — DB에서 몇 명 · 판정 재사용 · 실시간으로 채운 인원 · 저장 */
+  catalog?: import("./catalog").CatalogResultInfo;
 }
 
 export type FeedbackReason = "wrong_person" | "wrong_condition" | "not_fit" | "wrong_info" | "other";
@@ -494,6 +506,8 @@ export interface OpsAgentSpec {
   name: string; label: string; description: string; capabilities: string[]; status: string; tools: string[];
   uses_llm: boolean; tool_choice: string; budget: { llm_calls?: number | null; tool_calls?: number | null; timeout_s: number };
   slo: Record<string, number>; version: string; in_template: boolean;
+  /** 어느 쪽 일인가 — 검색 · 검색 · 모자랄 때 · 적재 · 다음 단계(꺼짐) (agentops/view.py agent_group) */
+  group?: string;
   recent?: { runs: number; ok: number; partial: number; failed: number; success_rate: number | null; p95_ms: number;
              avg_llm_calls: number; avg_tool_calls: number; missions: number; usd?: number; avg_usd?: number } | null;
 }
