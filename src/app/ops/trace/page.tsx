@@ -1,183 +1,230 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AgentBars, CandidateGrid, EventRows, ProblemList, RunGraph, StatusChip, TaskDrawer, ToolTable, secs, usd } from "@/components/ops/live";
-import { ErrorGroups, RejectedList } from "@/components/ops/why";
-import { getOpsMission, listOpsMissions } from "@/lib/api-v2";
-import type { OpsErrorGroup, OpsMissionRow, OpsMissionView, OpsProblem, OpsTask } from "@/types/v2";
+import { ExternalLink, Search } from "lucide-react";
+import { tbl } from "@/components/v2/ui";
+import { Pill, Tabs, ToneDot, hhmm, usd } from "@/components/v4/bits";
+import TraceSearch from "@/components/ops/trace-search";
+import { listOpsMissions } from "@/lib/api-v2";
+import { getIngestTrace, getIngestV4, getPersonPaths } from "@/lib/api-v4";
+import type { IngestTraceRun, PersonPath, Tone, TraceJob } from "@/types/v4";
 
-const AGENT_KO: Record<string, string> = {
-  "query-planner": "조건 설계", scout: "발굴", "web-researcher": "웹 조사", "account-linker": "계정 연결",
-  "yt-researcher": "유튜브", "ig-researcher": "인스타", verifier: "조건 판정", profiler: "정리",
-  supervisor: "총괄", overseer: "감독관", gateway: "툴 게이트웨이",
-};
-const label = (a: string) => AGENT_KO[a] ?? a;
-const NODE_AGENT: Record<string, string> = { dispatch_scout: "scout" };
+type Tab = "search" | "ingest";
 
+/** 추적 (v4 · B7 · 설계서 13-5) — [검색 · 적재] 탭. 검색은 인물 한 명의 길까지, 적재는 실행 → 노드 → 작업 → 호출까지 */
 export default function TracePage() {
-  return (
-    <Suspense fallback={<p className="text-[var(--dim)]">불러오는 중…</p>}>
-      <Trace />
-    </Suspense>
-  );
+  return <Suspense fallback={<p className="text-[var(--dim)]">불러오는 중…</p>}><Trace /></Suspense>;
 }
 
-/** 검색 추적 — 한 건이 어떻게 돌았고 어디서 문제가 났나. 위에서 아래로: 문제 → 그래프 → 후보 격자 → 시간 · 툴 */
 function Trace() {
   const q = useSearchParams();
   const router = useRouter();
-  const [rows, setRows] = useState<OpsMissionRow[]>([]);
-  const [data, setData] = useState<{ mid: string; v?: OpsMissionView; err?: string } | null>(null);
-  const [listErr, setListErr] = useState("");
-  const [focus, setFocus] = useState<string>("");
-  const [drawer, setDrawer] = useState<{ tasks?: OpsTask[]; rows?: OpsMissionView["timeline"]; title?: string } | null>(null);
-  const mid = q.get("m") || rows[0]?.mission_id || "";
-
-  useEffect(() => { listOpsMissions().then(setRows).catch((e) => setListErr(String(e?.message || e))); }, []);
-  useEffect(() => {
-    if (!mid) return;
-    getOpsMission(mid).then((v) => setData({ mid, v })).catch((e) => setData({ mid, err: String(e?.message || e) }));
-  }, [mid]);
-  const v = data?.mid === mid ? data.v ?? null : null;
-  const err = (data?.mid === mid ? data.err : "") || listErr;
-
-  const allEvents = useMemo(() => {
-    if (!v) return new Map<string, OpsMissionView["timeline"][number]>();
-    const m = new Map<string, OpsMissionView["timeline"][number]>();
-    v.timeline.forEach((r) => m.set(r.event_id, { ...r }));
-    Object.values(v.tasks).forEach((t) => t.events.forEach((r) => m.set(r.event_id, { ...r, text: `[${label(t.agent)}${t.candidate ? " · " + t.candidate : ""}] ${r.text}` })));
-    return m;
-  }, [v]);
-
-  const openTasks = useCallback((ids: string[]) => {
-    if (!v) return;
-    const ts = ids.map((i) => v.tasks[i]).filter(Boolean);
-    if (ts.length) setDrawer({ tasks: ts });
-  }, [v]);
-  const openProblem = useCallback((p: OpsProblem) => {
-    const rs = p.event_ids.map((id) => allEvents.get(id)).filter(Boolean) as OpsMissionView["timeline"];
-    setDrawer({ rows: rs, title: p.title });
-  }, [allEvents]);
-  const openErrors = useCallback((g: OpsErrorGroup) => {
-    const rs = g.event_ids.map((id) => allEvents.get(id)).filter(Boolean) as OpsMissionView["timeline"];
-    setDrawer({ rows: rs, title: `${g.title} — ${g.count}회` });
-  }, [allEvents]);
-  const openCandidate = useCallback((handle: string) => {
-    if (!v) return;
-    const ts = Object.values(v.tasks).filter((t) => t.candidate === handle);
-    if (ts.length) setDrawer({ tasks: ts });
-  }, [v]);
-  const pick = (id: string) => {
-    const a = NODE_AGENT[id] ?? id;
-    if (a === "scout" && v) {
-      const ts = Object.values(v.tasks).filter((t) => t.agent === "scout");
-      if (ts.length) return setDrawer({ tasks: ts });
-    }
-    setFocus((f) => (f === a ? "" : a));
-  };
-
-  const s = v?.summary;
+  const tab = (q.get("tab") as Tab) || "search";
+  const [text, setText] = useState("");
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="mission" className="text-[12.5px] text-[var(--dim)]">검색</label>
-        <select id="mission" value={mid} onChange={(e) => router.replace(`/ops/trace?m=${e.target.value}`)}
-          className="h-[32px] max-w-full min-w-0 flex-1 md:flex-none md:w-[560px] px-2 rounded-md border border-[var(--border-strong)] text-[13px]">
-          {!rows.some((r) => r.mission_id === mid) && mid && <option value={mid}>{mid}</option>}
-          {rows.map((r) => <option key={r.mission_id} value={r.mission_id}>{r.mission_id} · {(r.request || "").slice(0, 48)}</option>)}
-        </select>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[240px]">
+          <Tabs tabs={[{ k: "search", label: "검색" }, { k: "ingest", label: "적재" }]} value={tab} onChange={(k) => router.replace(`/ops/trace?tab=${k}`)} label="추적" />
+        </div>
+        <form className="relative w-full sm:w-[300px]" onSubmit={(e) => {
+          e.preventDefault();
+          const t = text.trim();
+          router.replace(t.startsWith("ing_") ? `/ops/trace?tab=ingest&run=${encodeURIComponent(t)}`
+            : t.startsWith("m_") ? `/ops/trace?m=${encodeURIComponent(t)}`
+            : `/ops/trace?${tab === "ingest" ? "tab=ingest&" : ""}${q.get("m") ? `m=${q.get("m")}&` : ""}${q.get("run") ? `run=${q.get("run")}&` : ""}who=${encodeURIComponent(t)}`);
+        }}>
+          <label htmlFor="trace-q" className="sr-only">인물 이름 · 아이디 · 실행 id</label>
+          <Search size={14} aria-hidden className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--dim)]" />
+          <input id="trace-q" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="인물 이름 · 아이디 · 실행 id(m_… · ing_…)"
+            className="w-full h-[32px] pl-8 pr-2.5 rounded-md border border-[var(--border-strong)] bg-[var(--panel)] text-[13px]" />
+        </form>
       </div>
-
-      {err && <p className="m-0 text-[13px] text-[var(--fail)]">불러오지 못했습니다: {err}</p>}
-      {!v && !err && <p className="m-0 text-[13px] text-[var(--dim)]">불러오는 중…</p>}
-
-      {v && s && (
+      {tab === "search" ? (
         <>
-          <section className="surface px-4 py-3" aria-label="검색 요약">
-            <p className="m-0 text-[14px] font-medium">{s.request || "(요청문 없음)"}</p>
-            <dl className="m-0 mt-2 flex flex-wrap gap-x-6 gap-y-1.5 text-[12.5px] tabular">
-              <Stat k="상태"><StatusChip s={s.status === "ok" ? "ok" : s.status === "failed" ? "failed" : s.status === "running" ? "running" : "partial"} /></Stat>
-              <Stat k="결과" bad={!!s.requested && (s.returned ?? 0) < s.requested}>{s.returned ?? "—"}/{s.requested ?? "—"}명 (탈락 {s.rejected ?? 0})</Stat>
-              <Stat k="시간">{secs(s.duration_s * 1000)}</Stat>
-              <Stat k="비용">{s.cost_usd != null ? usd(s.cost_usd) : "—"}{s.mode === "mock" && <span className="text-[var(--dim)]"> (모의)</span>}</Stat>
-              {s.verify_runs != null && <Stat k="조건 판정" bad={!!s.verified_candidates && s.verify_runs > s.verified_candidates * 1.5}>{s.verify_runs}회 / 후보 {s.verified_candidates ?? "—"}명</Stat>}
-              <Stat k="LLM">{s.llm_calls}회 · 입력 {s.tokens_in.toLocaleString()}토큰</Stat>
-              <Stat k="툴">{s.tool_calls}회 · 캐시 {s.cache_hits}</Stat>
-              {((s.fb_up ?? 0) + (s.fb_down ?? 0)) > 0 && <Stat k="사람 평가" bad={(s.fb_down ?? 0) > 0}>맞음 {s.fb_up ?? 0} · 안 맞음 {s.fb_down ?? 0}</Stat>}
-              <Stat k="감독관 개입" bad={s.interventions > 2}>{s.interventions}</Stat>
-              <Stat k="환경"><span translate="no">{s.env} · {s.version}</span></Stat>
-            </dl>
-          </section>
-
-          <section className="surface px-4 py-3" aria-labelledby="p-title">
-            <h2 id="p-title" className="m-0 mb-1 text-[14px] font-semibold">문제와 원인 {v.problems.length > 0 && <span className="font-normal text-[var(--dim)]">{v.problems.length}건 · 심각한 것부터</span>}</h2>
-            <ProblemList problems={v.problems} agentLabel={label} onEvents={openProblem} />
-          </section>
-
-          {(v.errors?.length ?? 0) > 0 && (
-            <section className="surface px-4 py-3" aria-labelledby="err-title">
-              <h2 id="err-title" className="m-0 mb-2 text-[14px] font-semibold">오류 — 왜 났나 <span className="font-normal text-[var(--dim)]">{v.errors!.reduce((n, g) => n + g.count, 0)}회 · 원인 {v.errors!.length}가지 · 우리 쪽 문제(설정 · 코드)가 위</span></h2>
-              <ErrorGroups groups={v.errors!} agentLabel={label} onEvents={openErrors} />
-            </section>
-          )}
-
-          <section className="surface px-4 py-3" aria-labelledby="g-title">
-            <div className="flex flex-wrap items-baseline gap-x-3 mb-2">
-              <h2 id="g-title" className="m-0 text-[14px] font-semibold">실행 그래프</h2>
-              <span className="text-[12.5px] text-[var(--dim)]">노드 테두리 = 결과 · 파란 선 = 이번에 탄 갈림길 · 조사 단계를 누르면 아래 격자에서 그 열을 강조합니다</span>
-            </div>
-            <RunGraph nodes={v.graph.nodes} edges={v.graph.edges} steps={v.steps} picked={focus} onPick={pick} />
-          </section>
-
-          <section className="surface px-4 py-3" aria-labelledby="c-title">
-            <div className="flex flex-wrap items-baseline gap-x-3 mb-1">
-              <h2 id="c-title" className="m-0 text-[14px] font-semibold">후보 × 조사 단계</h2>
-              <span className="text-[12.5px] text-[var(--dim)]">후보 {v.candidates.length}명 · 문제 있는 후보가 위 · 칸을 누르면 그 작업의 LLM · 툴 호출을 봅니다</span>
-            </div>
-            <CandidateGrid candidates={v.candidates} steps={v.steps} focus={focus} onPick={openTasks} />
-          </section>
-
-          <section className="surface px-4 py-3" aria-labelledby="rj-title">
-            <div className="flex flex-wrap items-baseline gap-x-3 mb-2">
-              <h2 id="rj-title" className="m-0 text-[14px] font-semibold">탈락한 후보 — 왜 떨어졌나</h2>
-              <span className="text-[12.5px] text-[var(--dim)]">{(v.rejected ?? []).length}명 · 선별 단계에서 떨어진 사람은 위 격자에 없고 여기에만 있습니다 · 이름을 누르면 그 후보의 조사 기록</span>
-            </div>
-            <RejectedList rows={v.rejected ?? []} onPick={openCandidate} />
-          </section>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <section className="surface px-4 py-3" aria-labelledby="cost-title">
-              <h2 id="cost-title" className="m-0 mb-2 text-[14px] font-semibold">에이전트별 실제 비용 <span className="font-normal text-[var(--dim)]">LLM 호출마다 그 모델 단가로 · 검색 API 포함</span></h2>
-              <AgentBars agents={v.agents} by="cost" />
-            </section>
-            <section className="surface px-4 py-3" aria-labelledby="t-title">
-              <h2 id="t-title" className="m-0 mb-2 text-[14px] font-semibold">에이전트별 걸린 시간 <span className="font-normal text-[var(--dim)]">합계 · 병렬 실행 포함</span></h2>
-              <AgentBars agents={v.agents} />
-            </section>
-          </div>
-          <section className="surface px-4 py-3" aria-labelledby="tool-title">
-            <h2 id="tool-title" className="m-0 mb-1 text-[14px] font-semibold">툴 호출</h2>
-            <ToolTable tools={v.tools} />
-          </section>
-
-          <details className="surface px-4 py-3">
-            <summary className="cursor-pointer text-[14px] font-semibold">총괄 이벤트 {v.timeline.length}개 <span className="font-normal text-[var(--dim)]">(계획 · 배정 · 검토 · 조건 컴파일 — 작업 밖에서 난 것)</span></summary>
-            <div className="mt-2"><EventRows rows={v.timeline} /></div>
-          </details>
+          <PersonPathPanel />
+          <TraceSearch />
         </>
-      )}
-
-      {drawer && <TaskDrawer {...drawer} agentLabel={label} onClose={() => setDrawer(null)} />}
+      ) : <IngestTrace />}
     </>
   );
 }
 
-function Stat({ k, children, bad }: { k: string; children: React.ReactNode; bad?: boolean }) {
+const STATE: Record<PersonPath["nodes"][number]["state"], { tone: Tone; label: string }> = {
+  pass: { tone: "pass", label: "지남" }, reuse: { tone: "pass", label: "재사용" }, drop: { tone: "fail", label: "여기서 탈락" }, skip: { tone: "none", label: "안 감" },
+};
+const V_TONE = { pass: "pass", fail: "fail", unknown: "warn" } as const;
+const V_KO = { pass: "충족", fail: "미충족", unknown: "확인 못 함" } as const;
+
+/** 인물 한 명의 길 — 검색 하나에서 그 사람이 거친 노드 · 조건별 판정 · 근거 · LLM 호출(D59 · D60). 검색은 아래 목록과 같은 것(?m=) */
+function PersonPathPanel() {
+  const q = useSearchParams();
+  const who = (q.get("who") || "").toLowerCase();
+  const [latest, setLatest] = useState("");
+  const mid = q.get("m") || latest;
+  const [paths, setPaths] = useState<PersonPath[]>([]);
+  const [sel, setSel] = useState(0);
+  useEffect(() => {
+    listOpsMissions().then((rows) => setLatest(rows.find((r) => r.mission_id.startsWith("m_"))?.mission_id || "")).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!mid) return;
+    getPersonPaths(mid).then((ps) => {
+      setPaths(ps);
+      const i = who ? ps.findIndex((x) => `${x.name} ${x.handle}`.toLowerCase().includes(who)) : 0;
+      setSel(Math.max(0, i));
+    }).catch(() => setPaths([]));
+  }, [mid, who]);
+  const p = paths[sel];
+  if (!p) return null;
   return (
-    <div className="flex items-center gap-1.5">
-      <dt className="text-[var(--dim)]">{k}</dt>
-      <dd className={`m-0 ${bad ? "font-semibold text-[var(--unknown)]" : ""}`}>{children}</dd>
-    </div>
+    <section className="surface px-4 py-3 flex flex-col gap-3" aria-label="인물 한 명의 길">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="m-0 text-[14px] font-semibold">인물 한 명의 길</h2>
+        <span className="text-[12.5px] text-[var(--dim)]" translate="no">검색 {mid} · {paths.length}명</span>
+        <label htmlFor="pp-sel" className="sr-only">인물</label>
+        <select id="pp-sel" value={sel} onChange={(e) => setSel(Number(e.target.value))} className="ml-auto h-[32px] px-2 rounded-md border border-[var(--border-strong)] bg-[var(--panel)] text-[13px]">
+          {paths.map((x, i) => <option key={x.handle} value={i}>{x.name} {x.handle}</option>)}
+        </select>
+      </div>
+      <p className="m-0 text-[13px]"><b>{p.outcome}</b></p>
+      <ol className="m-0 p-0 list-none flex flex-wrap items-stretch gap-1.5" aria-label="거친 노드">
+        {p.nodes.map((n, i) => (
+          <li key={n.id} className="flex items-center gap-1.5">
+            <div className="rounded-md border px-2.5 py-1.5 min-w-[128px] max-w-[190px]"
+              style={{ borderColor: STATE[n.state].tone === "fail" ? "var(--fail)" : n.state === "skip" ? "var(--border)" : "var(--border-strong)", opacity: n.state === "skip" ? 0.55 : 1 }}>
+              <p className="m-0 text-[12.5px] font-semibold flex items-center gap-1.5"><ToneDot tone={STATE[n.state].tone} />{n.ko}</p>
+              <p className="m-0 text-[11.5px] text-[var(--dim)]">{STATE[n.state].label}</p>
+              {n.note && <p className="m-0 text-[11.5px] text-[var(--ink-2)]">{n.note}</p>}
+            </div>
+            {i < p.nodes.length - 1 && <span aria-hidden className="text-[var(--dim)]">→</span>}
+          </li>
+        ))}
+      </ol>
+      <div className="relative overflow-x-auto">
+        <table className="w-full border-collapse text-[12.5px] min-w-[640px]">
+          <thead><tr>{["조건", "판정", "누가 쟀나", "근거", "호출"].map((h) => <th key={h} scope="col" className={tbl.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {p.checks.map((c) => (
+              <tr key={c.phrase}>
+                <td className={tbl.td}>{c.phrase}</td>
+                <td className={`${tbl.td} whitespace-nowrap`}><Pill tone={V_TONE[c.verdict]}>{V_KO[c.verdict]}</Pill></td>
+                <td className={`${tbl.td} whitespace-nowrap`}>{c.how}</td>
+                <td className={tbl.td}>{c.evidence}</td>
+                <td className={tbl.td}>
+                  {c.trace_url ? <a href={c.trace_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">{c.call ?? "트레이스"}<ExternalLink size={11} aria-hidden /></a> : <span className="text-[var(--dim)]">LLM 없음</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+const R_TONE: Record<TraceJob["result"], Tone> = { done: "pass", retry: "warn", failed: "fail", later: "none" };
+const R_KO: Record<TraceJob["result"], string> = { done: "끝", retry: "다시", failed: "실패", later: "나중에" };
+
+/** 추적 › 적재 — 실행 하나 = 적재 그래프 위 노드별 숫자 → 노드 → 작업 → 호출 시간순 */
+function IngestTrace() {
+  const q = useSearchParams();
+  const router = useRouter();
+  const who = (q.get("who") || "").toLowerCase();
+  const [runs, setRuns] = useState<{ id: string; started_at: string }[]>([]);
+  const [run, setRun] = useState<IngestTraceRun | null>(null);
+  const [node, setNode] = useState("all");
+  const [job, setJob] = useState<string>("");
+  const rid = q.get("run") || runs[0]?.id || "";
+  useEffect(() => { getIngestV4().then((s) => setRuns(s.runs)).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!rid) return;
+    getIngestTrace(rid).then((r) => {
+      const bad = [...r.jobs].sort((a, b) => Number(a.result === "done") - Number(b.result === "done"));   // 문제 있는 것 먼저
+      const hit = who ? bad.find((j) => `${j.key} ${j.person ?? ""}`.toLowerCase().includes(who)) : undefined;
+      setRun({ ...r, jobs: bad });
+      setJob((hit ?? bad[0])?.id ?? "");
+    });
+  }, [rid, who]);
+  const jobs = useMemo(() => (run ? run.jobs.filter((j) => node === "all" || j.node === node) : []), [run, node]);
+  if (!run) return <p className="m-0 text-[13px] text-[var(--dim)]">불러오는 중…</p>;
+  const cur = run.jobs.find((j) => j.id === job) ?? jobs[0];
+  return (
+    <>
+      <section className="surface px-4 py-3 flex flex-col gap-3" aria-label={`적재 실행 ${run.id}`}>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="m-0 text-[14px] font-semibold" translate="no">적재 실행 {run.id}</h2>
+          {runs.length > 1 && (
+            <>
+              <label htmlFor="run-sel" className="sr-only">적재 실행</label>
+              <select id="run-sel" value={run.id} onChange={(e) => router.replace(`/ops/trace?tab=ingest&run=${e.target.value}`)}
+                className="h-[28px] px-2 rounded-md border border-[var(--border-strong)] bg-[var(--panel)] text-[12.5px]">
+                {runs.map((r) => <option key={r.id} value={r.id}>{r.id} · {hhmm(r.started_at)}</option>)}
+              </select>
+            </>
+          )}
+          <span className="text-[12.5px] text-[var(--dim)] tabular">{hhmm(run.started_at)} · {run.minutes}분 · 새 인물 {run.new_people} · AI {usd(run.usd, 3)} · 멈춘 까닭 {run.stopped} · 빌드 <span translate="no">{run.build}</span></span>
+          {run.jobs[0]?.trace_url && <a href={run.jobs[0].trace_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-[12.5px] inline-flex items-center gap-1">이 실행의 LangSmith 트레이스<ExternalLink size={11} aria-hidden /></a>}
+        </div>
+        <ol className="m-0 p-0 list-none flex flex-wrap items-center gap-1.5" aria-label="적재 그래프 노드">
+          {run.nodes.map((n, i) => (
+            <li key={n.id} className="flex items-center gap-1.5">
+              <button type="button" onClick={() => setNode(node === n.id ? "all" : n.id)} aria-pressed={node === n.id}
+                className={`rounded-md border px-2.5 py-1.5 text-left min-w-[104px] bg-[var(--panel)] ${node === n.id ? "border-[var(--accent)]" : "border-[var(--border-strong)]"}`}>
+                <span className="block text-[12.5px] font-semibold">{n.ko}</span>
+                <span className="block text-[11.5px] tabular text-[var(--dim)]">끝 {n.done}{n.later ? ` · 나중에 ${n.later}` : ""}</span>
+                <span className="block text-[11.5px] tabular" style={{ color: n.failed ? "var(--fail)" : "var(--dim)" }}>실패 {n.failed}</span>
+              </button>
+              {i < run.nodes.length - 1 && <span aria-hidden className="text-[var(--dim)]">→</span>}
+            </li>
+          ))}
+        </ol>
+        <p className="m-0 text-[12px] text-[var(--dim)]">노드를 누르면 그 노드의 작업만 봅니다. 작업마다 요약 1줄이 30일 남고, 실패 · ‘다시’인 작업은 호출까지 전부 남습니다(D59).</p>
+      </section>
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
+        <section className="surface min-w-0" aria-label="작업">
+          <p className="m-0 px-4 pt-3 pb-2 text-[13px] font-semibold">작업 {jobs.length}{node !== "all" ? ` · ${run.nodes.find((n) => n.id === node)?.ko}` : " (문제 있는 것 먼저)"}</p>
+          <ul className="m-0 p-0 list-none">
+            {jobs.map((j) => (
+              <li key={j.id}>
+                <button type="button" onClick={() => setJob(j.id)} aria-pressed={cur?.id === j.id}
+                  className={`w-full text-left px-4 py-2 border-0 border-t border-[var(--border)] ${cur?.id === j.id ? "bg-[var(--accent-bg)]" : "bg-transparent hover:bg-[var(--soft)]"}`}>
+                  <span className="flex items-center gap-2 text-[12.5px]"><Pill tone={R_TONE[j.result]}>{R_KO[j.result]}</Pill><b translate="no">{j.kind}</b><span className="text-[var(--dim)] truncate" translate="no">{j.person ?? j.key}</span></span>
+                  <span className="block mt-0.5 text-[12px] text-[var(--ink-2)]">{j.note}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+        {cur && (
+          <section className="surface min-w-0" aria-label="호출">
+            <div className="px-4 pt-3 pb-2 flex flex-wrap items-baseline gap-x-2">
+              <p className="m-0 text-[13px] font-semibold" translate="no">{cur.kind} · {cur.person ?? cur.key}</p>
+              <span className="text-[12px] text-[var(--dim)] tabular">{(cur.ms / 1000).toFixed(1)}초 · 작업 <span translate="no">{cur.id}</span></span>
+              {cur.trace_url && <a href={cur.trace_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-[12px] inline-flex items-center gap-1">LangSmith<ExternalLink size={11} aria-hidden /></a>}
+            </div>
+            <div className="relative overflow-x-auto">
+              <table className="w-full border-collapse text-[12.5px] min-w-[520px]">
+                <thead><tr>{["시각", "누가", "툴", "인자", "결과", "ms"].map((h) => <th key={h} scope="col" className={tbl.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {!cur.calls.length && <tr><td colSpan={6} className={`${tbl.td} text-[var(--dim)]`}>끝난 작업은 요약 한 줄만 남깁니다 — 호출은 실패 · ‘다시’인 작업에만(D59)</td></tr>}
+                  {cur.calls.map((c, i) => (
+                    <tr key={i}>
+                      <td className={`${tbl.td} tabular`}>{c.at}</td>
+                      <td className={tbl.td} translate="no">{c.who}</td>
+                      <td className={tbl.td} translate="no">{c.tool}</td>
+                      <td className={`${tbl.td} break-all`}>{c.args}</td>
+                      <td className={tbl.td} style={{ color: /^[45]\d\d/.test(c.status) ? "var(--fail)" : undefined }}>{c.status}{c.note ? <span className="block text-[11.5px] text-[var(--dim)]">{c.note}</span> : null}</td>
+                      <td className={`${tbl.td} tabular`}>{c.ms}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
+    </>
   );
 }

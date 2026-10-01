@@ -109,6 +109,8 @@ export interface HistoryItem {
 }
 
 /** 목록 한 줄 — GET /api/catalog/people */
+export type PersonSource = "web" | "youtube" | "snowball" | "request" | "live" | "human";
+
 export interface PersonSummary {
   id: string;
   name: string;
@@ -127,6 +129,7 @@ export interface PersonSummary {
   refreshed_at: string;
   freshness: Freshness;
   status: PersonStatus;
+  source?: PersonSource;        // v4: 어디서 처음 찾았나(출처 필터)
 }
 
 /** 상세 — GET /api/catalog/people/{id} */
@@ -157,6 +160,7 @@ export interface PeopleQuery {
   contact?: "any" | "has" | "missing";   // missing = 연락처 못 찾음(관리자가 채울 목록)
   hidden?: boolean;                     // true = 숨긴 사람만 본다 (기본은 숨긴 사람 제외 · D26)
   fresh_only?: boolean;
+  source?: PersonSource | "any"; // v4: 출처 필터
   sort?: PeopleSort;
   limit?: number;                       // 기본 200 · 최대 500 (서버가 자른다)
 }
@@ -177,84 +181,7 @@ export type PersonPatch =
   | { kind: "contact"; contact: Pick<Contact, "kind" | "value" | "label" | "source_url"> } // 연락처 넣기 — origin human (D24)
   | { kind: "hide"; hidden: boolean; note?: string };                                    // 삭제 요청도 숨기기로 한다 (D26)
 
-// ── 적재 현황 — GET /api/catalog/ingest ───────────────────────────────────────
-/** 검색 낱말 한 줄 — 낱말은 자동으로 늘고 꺼진다(D40). 사람은 빼기만 한다 */
-export type KeywordSource = "seed" | "manual" | "auto_tag" | "auto_llm";   // 후보 기본 · 사람 · 해시태그 · AI 넓히기
-export interface KeywordRow {
-  word: string;
-  source: KeywordSource;
-  status: "active" | "off";     // 사람이 뺀 낱말(removed)은 오지 않는다
-  queries: number;              // 이 낱말로 한 검색 수
-  added: number;                // 새로 들어온 사람
-  classified: number;           // 그중 분류가 끝난 사람
-  hits: number;                 // 그중 이 분야로 분류된 사람
-  off_reason?: string;          // '새 사람 3번 연속 0명' · '분야 적중률 20% (새 사람 12명 중)'
-}
-
-export interface TopicRow {
-  name: string;
-  enabled: boolean;
-  target: number;
-  origin: "candidate" | "manual";   // 후보 체크로 넣었나(D39)
-  people: number;
-  creators: number;             // 그중 개인 크리에이터
-  fresh_ratio: number;
-  new_7d: number;
-  keywords: string[];           // 켜진 낱말만
-  keyword_rows: KeywordRow[];   // 켜진 · 꺼진 낱말과 성과
-  queries_used: number;
-  yield_per_query: number;      // 소개글 검색 1회에 새로 들어온 계정 수
-  last_run_at: string;
-}
-
-/** 분야 후보 — GET /api/catalog/topics/candidates. 이미 넣은 분야는 빠진다 */
-export interface TopicCandidate { name: string; keywords: string[]; note: string }
-
-export interface StageRow {
-  key: "seed" | "collect" | "classify" | "enrich" | "store";
-  label: string;
-  waiting: number;
-  done_24h: number;
-  failed_24h: number;
-  llm: boolean;
-}
-
-export type WorkerStatus = "active" | "shadow" | "canary" | "disabled";
-
-export interface IngestWorker {
-  name: string;                 // agent.yaml 의 name
-  label: string;
-  capability: string;
-  stage: StageRow["key"];
-  does: string;
-  llm: "없음" | "배치 1회" | "낱말 넓히기";
-  reuses: string;               // 지금 코드에서 가져오는 것
-  status: WorkerStatus;
-  runs_24h: number;
-  success_rate: number | null;
-  avg_usd: number | null;
-}
-
-export interface IngestError {
-  at: string;
-  worker: string;
-  target: string;
-  title: string;
-  why: string;
-  todo: string;
-}
-
-export interface IngestRun {
-  id: string;                   // ing_…
-  started_at: string;
-  minutes: number;
-  processed: number;
-  added: number;
-  failed: number;
-  usd: number;
-  stopped: string;              // '할 일 없음' · '마감 5분 전' · '몫 소진' · '도는 중'
-}
-
+// ── 적재 — 화면 타입은 src/types/v4.ts(IngestV4) ─────────────────────────────────
 /** '지금 한 번 돌리기' — 서버 스레드에서 도는 시험 실행(스위치가 꺼져 있어도 · POST /api/catalog/ingest/run) */
 export interface IngestManual {
   alive: boolean;               // 아직 도는 중
@@ -266,25 +193,6 @@ export interface IngestManual {
             llm_usd?: number; stopped?: string; note?: string } | null;
 }
 
-export interface IngestStatus {
-  enabled: boolean;             // 서버 적재 스위치(INGEST_ENABLED=1) — 꺼져 있으면 크론이 돌아도 모으지 않는다(D29)
-  totals: { people: number; creators: number; new_7d: number; fresh_ratio: number; needs_review: number; hidden: number; contact_missing: number };
-  cost: { month_usd: number; cap_usd: number; today_usd: number; per_person_usd: number };
-  quota: {
-    youtube_units_today: number; youtube_cap: number;
-    instagram_calls_hour: number; instagram_cap_hour: number;
-    web_searches_today: number; web_cap: number;
-  };
-  next_run_at: string;          // "" = 스위치가 꺼져 있음
-  running?: boolean;            // 지금 도는 적재 실행이 있다(크론 · 버튼) — 도는 동안 버튼을 막는다
-  manual?: IngestManual | null; // 이 서버에서 '지금 한 번 돌리기'로 돌린 마지막 실행
-  topics: TopicRow[];
-  stages: StageRow[];
-  workers: IngestWorker[];
-  errors: IngestError[];
-  runs: IngestRun[];
-}
-
 // ── DB 검색 결과에 붙는 칸 — 검색 결과(MissionResult.catalog · 설계서 10장 · D42) ─────────────
 /** DB와 실시간 검색을 합쳐도 모자랄 때 — 조건마다 빠진 인원과 그 분야 적재 낱말 더하기(D25) */
 export interface CatalogShortfall {
@@ -292,7 +200,9 @@ export interface CatalogShortfall {
   found: number;
   topic: string;                                   // "" = 요청 분야가 DB에 없음 → 분야 추가로 안내
   dropped: { phrase: string; removed: number }[];   // 조건마다 DB 거르기 · 코드로 재기에서 떨어진 인원
-  suggest_keywords: string[];                      // 적재에 더할 검색 낱말 제안
+  suggest_keywords: string[];                      // 탐색 요청에 넣은 낱말(v4 — 적재가 먼저 찾는다)
+  request_id?: string;                             // v4: 자동으로 넣은 탐색 요청(D51)
+  live?: { usd_min: number; usd_max: number; minutes: string; done?: number; usd?: number };   // '실시간으로 더 찾기' 예상 · 결과
 }
 
 /** 검색 한 번의 DB 요약 — 결과 화면 위에 보인다 */
@@ -311,9 +221,7 @@ export interface CatalogResultInfo {
   live_rounds?: number;         // 실시간 발굴 라운드 (0 = DB로 채움)
   saved?: { found_new: number; verdicts: number; links: number; refresh: number };   // 이번 검색이 DB에 넣은 것
   shortfall?: CatalogShortfall;
+  live_mission?: string;        // v4: 버튼 검색(실시간) 미션 id
+  text_search?: boolean;        // v4: 분야를 못 맞춰 글자 검색으로 찾음(D52)
 }
 
-// ── 분야 추가 · 고치기 — POST /api/catalog/topics · PATCH /api/catalog/topics/{name} ─────────
-/** 낱말은 비워도 된다 — 후보면 후보 낱말, 아니면 첫 적재에서 자동으로 만든다(D39 · D40) */
-export interface NewTopic { name: string; keywords?: string[]; target: number }
-export interface TopicPatch { enabled?: boolean; add_keywords?: string[]; remove_keywords?: string[]; target?: number }

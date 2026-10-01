@@ -15,7 +15,7 @@ type Pick = (name: string) => void;
 const MONO = { fontFamily: "var(--font-geist-mono), monospace" };
 const clip = (s: string, n: number) => (s && s.length > n ? s.slice(0, n - 1) + "…" : s || "");
 
-function Arrows() {
+export function Arrows() {
   return (
     <defs>
       {[["m0", "var(--border-strong)"], ["m1", "var(--accent)"], ["m2", "var(--unknown)"]].map(([id, c]) => (
@@ -28,7 +28,7 @@ function Arrows() {
 }
 
 /** 워커 칩 — 이름(한국어) · 꺼진 워커는 점선 · 누르면 카드로 */
-function Chip({ x, y, w, a, n, onPick, h = 20 }: { x: number; y: number; w: number; a?: OpsAgentSpec; n?: number; onPick?: Pick; h?: number }) {
+export function Chip({ x, y, w, a, n, onPick, h = 20 }: { x: number; y: number; w: number; a?: OpsAgentSpec; n?: number; onPick?: Pick; h?: number }) {
   if (!a) return null;
   const off = a.status === "disabled";
   const blocked = (a.blocked?.length ?? 0) > 0;

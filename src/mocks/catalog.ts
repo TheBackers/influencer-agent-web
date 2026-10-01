@@ -5,7 +5,7 @@
  */
 import type {
   AccountType, Activity, BrandDeal, CatalogAccount, CatalogPlatform, Contact, ContactState, Freshness,
-  HistoryItem, IngestStatus, KeywordRow, Mention, PeoplePage, PeopleQuery, Person, PersonSummary, TopicCandidate, VerdictRecord,
+  HistoryItem, Mention, PeoplePage, PeopleQuery, Person, PersonSummary, VerdictRecord,
 } from "@/types/catalog";
 
 const NOW = Date.parse("2026-09-29T09:00:00+09:00");
@@ -283,6 +283,12 @@ function followersOf(p: PersonSummary): number {
 }
 
 /** 목업의 필터 — 실제로는 백엔드 SQL 이 한다(설계서 10장 retrieve와 같은 기준). all = 목업 인물 전부(고친 내용이 반영된 것) */
+/** v4 목업 — 출처(어디서 처음 찾았나). 실제는 people.source */
+const SRC: NonNullable<PersonSummary["source"]>[] = ["snowball", "web", "snowball", "youtube", "web", "snowball", "request", "snowball", "web", "live"];
+export function sourceOf(p: PersonSummary): NonNullable<PersonSummary["source"]> {
+  return p.source ?? SRC[[...p.id].reduce((a, c) => a + c.charCodeAt(0), 0) % SRC.length];
+}
+
 export function filterPeople(all: PersonSummary[], q: PeopleQuery): PeoplePage {
   const text = (q.q ?? "").trim().toLowerCase();
   let items = all.filter((p) => (q.hidden ? p.status === "hidden" : p.status !== "hidden"));
@@ -297,6 +303,7 @@ export function filterPeople(all: PersonSummary[], q: PeopleQuery): PeoplePage {
   if (q.contact === "has") items = items.filter((p) => p.contact_state === "found");
   if (q.contact === "missing") items = items.filter((p) => p.contact_state === "needs_human");
   if (q.fresh_only) items = items.filter((p) => p.freshness === "fresh");
+  if (q.source && q.source !== "any") items = items.filter((p) => sourceOf(p) === q.source);
   const sort = q.sort ?? "refreshed";
   items.sort((a, b) =>
     sort === "followers" ? followersOf(b) - followersOf(a)
@@ -318,90 +325,3 @@ export function queryPeople(q: PeopleQuery): PeoplePage {
 export function personById(id: string): Person | undefined {
   return PEOPLE.find((p) => p.id === id);
 }
-
-// ── 적재 현황 ─────────────────────────────────────────────────────────────────
-/** 분야 후보 — supabase 마이그레이션 catalog_v2_ingest 의 topic_candidates 와 같다(D39) */
-export const TOPIC_CANDIDATES: TopicCandidate[] = [
-  { name: "뷰티", keywords: ["뷰티", "메이크업", "스킨케어", "화장품 리뷰", "데일리 메이크업", "뷰티 유튜버"], note: "화장품 · 스킨케어" },
-  { name: "육아", keywords: ["육아", "육아맘", "아기 일상", "육아템", "이유식", "아기옷"], note: "아기 · 육아용품" },
-  { name: "요리", keywords: ["요리", "집밥", "레시피", "자취요리", "요리 유튜버", "도시락"], note: "집밥 · 레시피" },
-  { name: "맛집", keywords: ["맛집", "맛집 탐방", "먹방", "카페 투어", "서울 맛집", "맛집 리뷰"], note: "맛집 · 먹방" },
-  { name: "여행", keywords: ["여행", "국내여행", "해외여행", "여행 브이로그", "호캉스", "여행 유튜버"], note: "국내외 여행" },
-  { name: "캠핑", keywords: ["캠핑", "차박", "백패킹", "캠핑 장비", "캠핑 요리", "글램핑"], note: "캠핑 · 아웃도어" },
-  { name: "운동", keywords: ["홈트", "헬스", "필라테스", "요가", "운동 브이로그", "바디프로필"], note: "헬스 · 홈트 · 요가" },
-  { name: "러닝", keywords: ["러닝", "마라톤", "러닝 크루", "러닝화 리뷰", "달리기"], note: "달리기" },
-  { name: "골프", keywords: ["골프", "골프웨어", "골린이", "골프 레슨", "스크린골프"], note: "골프" },
-  { name: "반려동물", keywords: ["반려견", "반려묘", "강아지 일상", "고양이 일상", "펫스타그램", "강아지 간식"], note: "강아지 · 고양이" },
-  { name: "인테리어", keywords: ["인테리어", "홈스타일링", "자취방 인테리어", "오늘의집", "셀프 인테리어", "수납"], note: "집 꾸미기" },
-  { name: "식물", keywords: ["식물", "반려식물", "가드닝", "플랜테리어", "식집사"], note: "식물 · 가드닝" },
-  { name: "다이어트", keywords: ["다이어트", "식단", "다이어트 식단", "체중 감량", "저당 레시피"], note: "식단 · 감량" },
-  { name: "게임", keywords: ["게임", "게임 유튜버", "모바일 게임", "게임 리뷰", "스팀 게임"], note: "게임" },
-  { name: "재테크", keywords: ["재테크", "주식", "부동산", "절약", "가계부", "경제 유튜버"], note: "돈 · 투자" },
-  { name: "독서", keywords: ["독서", "책 추천", "북스타그램", "책 리뷰", "독서 기록"], note: "책" },
-  { name: "자동차", keywords: ["자동차", "자동차 리뷰", "시승기", "전기차", "차 유튜버"], note: "자동차" },
-  { name: "공예", keywords: ["뜨개", "뜨개질", "공예", "핸드메이드", "도자기 공방", "캔들"], note: "뜨개 · 핸드메이드" },
-  { name: "웨딩", keywords: ["웨딩", "결혼 준비", "웨딩드레스", "신혼집", "스드메"], note: "결혼 준비" },
-  { name: "전시 · 문화", keywords: ["전시", "전시회 추천", "미술관", "공연 리뷰", "문화생활"], note: "전시 · 공연" },
-];
-
-/** 낱말 성과 목업 — [낱말, 출처, 검색, 새 사람, 분류, 적중, 꺼진 이유] */
-type K = [string, KeywordRow["source"], number, number, number, number, string?];
-const kw = (rows: K[]): KeywordRow[] => rows.map(([word, source, queries, added, classified, hits, off]) => ({
-  word, source, status: off ? "off" : "active", queries, added, classified, hits, ...(off ? { off_reason: off } : {}),
-}));
-const HOMECAFE = kw([
-  ["홈카페", "manual", 42, 180, 176, 170], ["핸드드립", "manual", 30, 96, 94, 90], ["라떼아트", "manual", 28, 88, 85, 80],
-  ["모카포트", "manual", 18, 41, 40, 38], ["원두 리뷰", "manual", 24, 70, 66, 61], ["캡슐커피", "manual", 16, 38, 37, 30],
-  ["홈바리스타", "auto_tag", 12, 34, 33, 31], ["콜드브루", "auto_tag", 8, 19, 18, 15], ["홈카페 레시피", "auto_llm", 6, 12, 12, 11],
-  ["커피 브이로그", "auto_llm", 4, 0, 0, 0, "새 사람 3번 연속 0명"],
-]);
-const IT = kw([
-  ["IT 리뷰", "manual", 40, 160, 158, 150], ["스마트폰 리뷰", "manual", 34, 130, 126, 118], ["노트북 추천", "manual", 28, 92, 90, 84],
-  ["이어폰 비교", "manual", 22, 60, 58, 55], ["태블릿 리뷰", "manual", 20, 52, 50, 47], ["가전 리뷰", "manual", 20, 44, 42, 35],
-  ["언박싱", "auto_tag", 6, 14, 14, 13],
-]);
-const FASHION = kw([
-  ["패션", "manual", 48, 120, 118, 102], ["데일리룩", "manual", 44, 104, 100, 92], ["빈티지", "manual", 36, 70, 66, 50],
-  ["미니멀룩", "manual", 30, 18, 17, 15], ["스트릿", "manual", 34, 21, 20, 16], ["오피스룩", "auto_tag", 5, 11, 11, 10],
-  ["체형별 코디", "auto_llm", 4, 9, 9, 8], ["ootd 추천", "auto_llm", 6, 14, 12, 2, "분야 적중률 17% (새 사람 12명 중)"],
-]);
-const CAMPING = kw(TOPIC_CANDIDATES.find((c) => c.name === "캠핑")!.keywords.map((w) => [w, "seed", 0, 0, 0, 0] as K));
-const active = (rows: KeywordRow[]) => rows.filter((k) => k.status === "active").map((k) => k.word);
-
-export const ingestStatus: IngestStatus = {
-  enabled: true,
-  totals: { people: DB_TOTAL, creators: 1712, new_7d: 346, fresh_ratio: 0.91, needs_review: 38, hidden: 2, contact_missing: 41 },
-  cost: { month_usd: 1.12, cap_usd: 10, today_usd: 0.06, per_person_usd: 0.0005 },
-  quota: { youtube_units_today: 2140, youtube_cap: 4000, instagram_calls_hour: 64, instagram_cap_hour: 100, web_searches_today: 1880, web_cap: 3000 },
-  next_run_at: "2026-09-29T10:07:00+09:00",
-  topics: [
-    { name: "홈카페", enabled: true, target: 1000, origin: "manual", people: 842, creators: 655, fresh_ratio: 0.93, new_7d: 121, keywords: active(HOMECAFE), keyword_rows: HOMECAFE, queries_used: 188, yield_per_query: 2.9, last_run_at: ago(0, 1) },
-    { name: "IT 리뷰", enabled: true, target: 1000, origin: "manual", people: 796, creators: 612, fresh_ratio: 0.92, new_7d: 122, keywords: active(IT), keyword_rows: IT, queries_used: 164, yield_per_query: 3.4, last_run_at: ago(0, 1) },
-    { name: "패션", enabled: true, target: 1000, origin: "manual", people: 546, creators: 445, fresh_ratio: 0.88, new_7d: 103, keywords: active(FASHION), keyword_rows: FASHION, queries_used: 201, yield_per_query: 1.6, last_run_at: ago(0, 2) },
-    { name: "캠핑", enabled: true, target: 1000, origin: "candidate", people: 0, creators: 0, fresh_ratio: 0, new_7d: 0, keywords: active(CAMPING), keyword_rows: CAMPING, queries_used: 0, yield_per_query: 0, last_run_at: "" },
-  ],
-  stages: [
-    { key: "seed", label: "씨앗 줍기", waiting: 4, done_24h: 48, failed_24h: 0, llm: true },
-    { key: "collect", label: "수집 · 뽑기", waiting: 164, done_24h: 612, failed_24h: 23, llm: false },
-    { key: "classify", label: "분류", waiting: 18, done_24h: 560, failed_24h: 0, llm: true },
-    { key: "enrich", label: "웹 보강", waiting: 210, done_24h: 305, failed_24h: 9, llm: false },
-    { key: "store", label: "저장 (가드)", waiting: 0, done_24h: 0, failed_24h: 0, llm: false },
-  ],
-  workers: [
-    { name: "seed-harvester", label: "씨앗 줍기", capability: "seed.accounts", stage: "seed", does: "분야 낱말로 소개글 속 인스타 계정 · 유튜브 채널을 모은다. 쓸 검색어가 모자라면 해시태그 · AI로 낱말을 늘리고, 성과 없는 낱말은 끈다(D40)", llm: "낱말 넓히기", reuses: "find_instagram_accounts · youtube_search · 쓴 검색어 거부", status: "active", runs_24h: 48, success_rate: 1, avg_usd: null },
-    { name: "collector", label: "수집", capability: "collect.*", stage: "collect", does: "계정 하나의 프로필 · 최근 활동 — 인스타 게시물 25 · 유튜브 영상 40 · 블로그 글 10. 조회 불가 계정은 30일 뒤 다시", llm: "없음", reuses: "instagram_profile · youtube_channel · naver_blog_posts", status: "active", runs_24h: 635, success_rate: 0.964, avg_usd: null },
-    { name: "extractor", label: "뽑기", capability: "extract.account", stage: "collect", does: "소개 · 설명란에 적힌 다른 플랫폼 계정 · 협찬 표시와 브랜드 · 본인이 공개한 연락처(인스타 DM · 이메일 · 링크모음 · 카카오)", llm: "없음", reuses: "accounts_in · own_instagram · blog_ids · 협찬 정규식", status: "active", runs_24h: 635, success_rate: 0.964, avg_usd: null },
-    { name: "classifier", label: "분류", capability: "classify.profile", stage: "classify", does: "분야 태그(분야 목록 안에서) · 계정 종류 · 한 줄 요약 — 20명씩 AI 1회", llm: "배치 1회", reuses: "주제 선별 프롬프트", status: "active", runs_24h: 560, success_rate: 1, avg_usd: null },
-    { name: "web-enricher", label: "웹 보강", capability: "enrich.person", stage: "enrich", does: "개인 크리에이터만 — 기사 · 인터뷰 언급과 본인 확인 등급. 본인 계정에 연락처가 없으면 검색 결과에서 찾는다(본인 확인 글에서만)", llm: "없음", reuses: "about_person (D9) · own_instagram", status: "active", runs_24h: 314, success_rate: 0.971, avg_usd: null },
-  ],
-  errors: [
-    { at: ago(0, 1), worker: "collect.instagram", target: "sunny.cup", title: "collect.instagram 실패 (3번)", why: "business_discovery 는 프로 · 크리에이터 계정만 조회된다 — 개인 계정이거나 없는 계정", todo: "할 일 없음 — 30일 뒤 자동으로 다시 본다" },
-    { at: ago(0, 3), worker: "enrich.person", target: "드립하는곰", title: "enrich.person 실패 (3번)", why: "표시 이름이 아이디와 같고, 아이디가 적힌 웹 글이 없다", todo: "인물 상세에서 이름을 넣으면 다음 적재 때 다시 찾는다" },
-  ],
-  runs: [
-    { id: "ing_412", started_at: ago(0, 0.9), minutes: 45, processed: 188, added: 41, failed: 6, usd: 0.011, stopped: "마감 5분 전" },
-    { id: "ing_411", started_at: ago(0, 1.9), minutes: 38, processed: 164, added: 35, failed: 4, usd: 0.009, stopped: "몫 소진 · 막힌 툴" },
-    { id: "ing_410", started_at: ago(0, 2.9), minutes: 45, processed: 201, added: 52, failed: 9, usd: 0.012, stopped: "마감 5분 전" },
-    { id: "ing_409", started_at: ago(0, 3.9), minutes: 22, processed: 96, added: 18, failed: 3, usd: 0.006, stopped: "할 일 없음" },
-  ],
-};
